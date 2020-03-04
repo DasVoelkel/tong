@@ -1,0 +1,1 @@
+add_executable(${TARGET} main.cpp )
