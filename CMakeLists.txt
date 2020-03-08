@@ -2,10 +2,19 @@
 
 
 cmake_minimum_required(VERSION 3.1)
+    INCLUDE(FindPkgConfig)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Release)
 
-project(tong VERSION 0.01)
+project(tong LANGUAGES CXX VERSION 0.01)
+add_compile_options(-std=c++17)
+
+PKG_CHECK_MODULES( PKG REQUIRED allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5)
+
 set(EXECUTABLE_OUTPUT_PATH ./${CMAKE_PROJECT_NAME})
+
+
+
 
 include_directories(include)
 
@@ -17,10 +26,12 @@ file(
 )
 add_executable( ${PROJECT_NAME} ${SRCS} )
 
+
+
 target_link_libraries(${CMAKE_PROJECT_NAME}
-        PUBLIC -lpthread -lallegro)
+        PUBLIC "${PKG_LIBRARIES}")
 
 
 
 
-set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY CXX_STANDARD 17)
+
