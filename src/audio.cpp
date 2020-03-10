@@ -9,13 +9,13 @@ void audio_init()
     al_init_acodec_addon();
     al_reserve_samples(128);
 
-    sample_shot = al_load_sample("shot.flac");
+    /* sample_shot = al_load_sample("shot.flac");
     must_init(sample_shot, "shot sample");
 
     sample_explode[0] = al_load_sample("explode1.flac");
     must_init(sample_explode[0], "explode[0] sample");
     sample_explode[1] = al_load_sample("explode2.flac");
-    must_init(sample_explode[1], "explode[1] sample");
+    must_init(sample_explode[1], "explode[1] sample");*/
 }
 
 void audio_deinit()
