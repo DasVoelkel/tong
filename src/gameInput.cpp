@@ -82,6 +82,15 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
         case ALLEGRO_EVENT_KEY_CHAR:
             // do nothing
             break;
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
+            fprintf(stderr, "switched into display\n");
+
+            break;
+        case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+            fprintf(stderr, "switched out of display\n");
+
+            break;
+
         case G_STATE_CHANGE_EVENT_NUM:
             // check if we need to close the thread
 

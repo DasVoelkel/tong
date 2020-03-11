@@ -35,14 +35,15 @@ void init()
 
 void deinit()
 {
+    al_join_thread(p_input_thread, NULL);
+    al_join_thread(p_draw_thread, NULL);
+
     draw_thread_deinit();
     input_thread_deinit();
     al_destroy_user_event_source(&game_state_event_source);
     al_destroy_font(internal_font);
 
-    al_destroy_thread(p_draw_thread);
-    al_destroy_thread(p_input_thread);
-
+   
     audio_deinit();
     disp_deinit();
 }
