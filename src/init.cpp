@@ -43,7 +43,6 @@ void deinit()
     al_destroy_user_event_source(&game_state_event_source);
     al_destroy_font(internal_font);
 
-   
     audio_deinit();
     disp_deinit();
 }
@@ -116,6 +115,20 @@ bool opt_valid()
     {
         return false;
     }
+
+    // check if all settings are here, if not, it's invalid
+    nlohmann::json compare_value = get_default_empty();
+
+    for (auto &el : compare_value.items())
+    {
+        if (!(opt_j.find(el.key()) != opt_j.end()))
+        {
+            fprintf(stderr, "essential settings missing \n");
+            return false;
+        }
+    }
+
+    fprintf(stderr, "essential settings present \n");
     return true;
 }
 
@@ -130,7 +143,7 @@ nlohmann::json read_options()
         opt_fs >> opt_j;
         opt_fs.close();
 
-        fprintf(stderr, "returned opt file \n");
+        fprintf(stderr, "returned opt file scanned \n");
 
         return opt_j;
     }
@@ -142,7 +155,7 @@ nlohmann::json read_options()
             opt_fs >> opt_j;
             opt_fs.close();
 
-            fprintf(stderr, "returned opt file \n");
+            fprintf(stderr, "returned opt file default \n");
 
             return opt_j;
         }
@@ -188,18 +201,17 @@ bool save_opt(nlohmann::json data)
 
     return true;
 }
+
 nlohmann::json get_default_empty()
 {
-    return {
-        {"pi", 3.141},
-        {"happy", true},
-        {"name", "Niels"},
-        {"nothing", nullptr},
-        {"answer", {{"everything", 42}}},
-        {"list", {1, 0, 2}},
-        {"object", {{"currency", "USD"}, {"value", 42.99}}}
-
-    };
+    nlohmann::json ret = {
+        {"fullscreen", false},
+        {"scale_fac",
+         3},
+        {"anti_a",
+         5},
+        {"audio_volume", 100}};
+    return ret;
 }
 
 /// init essentials

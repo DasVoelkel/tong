@@ -55,7 +55,16 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "Draw thread started\n");
     ALLEGRO_EVENT event;
 
-    while (g_state != D_EXIT)
+    if (g_state == D_RESTART)
+    {
+        fprintf(stderr, "started draw thread from restart waiting for go ahead \n");
+        while (g_state == D_RESTART)
+        {
+            al_wait_for_event(event_queue_draw_thread, &event);
+        }
+    }
+
+    while (g_state != D_EXIT && g_state != D_RESTART)
     {
 
         al_wait_for_event(event_queue_draw_thread, &event);

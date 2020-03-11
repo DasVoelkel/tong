@@ -25,6 +25,7 @@ void keyboard_update(ALLEGRO_EVENT *event)
         key[event->keyboard.keycode] &= KEY_RELEASED;
         break;
     }
+    process_keys();
 }
 
 void keyboard_seen()
@@ -67,7 +68,16 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "input thread started\n");
     ALLEGRO_EVENT event;
 
-    while (g_state != D_EXIT)
+    if (g_state == D_RESTART)
+    {
+        fprintf(stderr, "started input thread from restart waiting for go ahead \n");
+        while (g_state == D_RESTART)
+        {
+            al_wait_for_event(event_queue_input_thread, &event);
+        }
+    }
+
+    while (g_state != D_EXIT && g_state != D_RESTART)
     {
         al_wait_for_event(event_queue_input_thread, &event);
 
@@ -107,4 +117,34 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
         }
     }
     fprintf(stderr, "input thread exit\n");
+}
+
+void process_keys()
+{
+
+    for (int processed_key_id = 0; processed_key_id < ALLEGRO_KEY_MAX; processed_key_id++)
+    {
+
+        if (key[processed_key_id])
+        {
+            switch (processed_key_id)
+            {
+            case ALLEGRO_KEY_ESCAPE:
+                // exit program
+                g_state_update_event(D_EXIT);
+
+                break;
+
+            case ALLEGRO_KEY_R:
+                // restart display thread
+                g_state_update_event(D_RESTART);
+
+                break;
+            default:
+                break;
+            }
+        }
+
+        key[processed_key_id] &= KEY_SEEN;
+    }
 }

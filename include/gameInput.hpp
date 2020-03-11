@@ -19,3 +19,5 @@ void keyboard_seen();
 
 ALLEGRO_THREAD *keyboard_input_thread_init();
 void *input_thread(ALLEGRO_THREAD *thr, void *arg);
+
+void process_keys();
