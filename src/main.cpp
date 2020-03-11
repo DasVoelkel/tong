@@ -139,32 +139,42 @@ void sprites_deinit()
 
 // --- main ---
 
-int main()
+int main() // MAIN IS OUR CONTROL THREAD
 {
 
-    //read_options();
-
+    read_options();
     must_init(al_init(), "allegro");
     init();
 
+    ALLEGRO_EVENT_QUEUE *event_queue_control_thread = al_create_event_queue();
+    must_init(event_queue_control_thread, "event-queue-control-thread");
+    al_register_event_source(event_queue_control_thread, &game_state_event_source);
+
     ALLEGRO_EVENT event;
+
     while (g_state != D_EXIT)
     {
-        // main button processing
-        for (int i = 0; i < ALLEGRO_KEY_MAX; i++)
+        al_wait_for_event(event_queue_control_thread, &event);
+
+        switch (g_state)
         {
-            if (key[ALLEGRO_KEY_ESCAPE])
-            {
-                g_state_update_event(D_EXIT);
+        case D_EXIT:
+            break;
 
-                break;
-            }
+        case D_RESTART:
+            fprintf(stderr, "Control saw draw thread restart\n");
+            // close all threads, then restart them and recreate disp first !
 
-            key[i] &= KEY_SEEN;
+            break;
+
+        default:
+            // main button processing
+
+            break;
         }
     }
 
     deinit();
 
-    return 0;
+    exit(0);
 }

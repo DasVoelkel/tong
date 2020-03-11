@@ -50,5 +50,8 @@ enum GAME_STATES
     D_MENU,
     D_GAME,
     D_OPTIONS,
+
+    
+    D_RESTART,
     D_EXIT
 };
