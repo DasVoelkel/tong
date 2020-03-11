@@ -148,8 +148,7 @@ int main()
     init();
 
     ALLEGRO_EVENT event;
-    bool main_running = true;
-    while (main_running)
+    while (g_state != D_EXIT)
     {
         // main button processing
         for (int i = 0; i < ALLEGRO_KEY_MAX; i++)
@@ -157,12 +156,7 @@ int main()
             if (key[ALLEGRO_KEY_ESCAPE])
             {
                 g_state_update_event(D_EXIT);
-                //al_join_thread(p_input_thread, NULL);
-                //al_join_thread(p_draw_thread, NULL);
 
-
-
-                main_running = false;
                 break;
             }
 
