@@ -1,7 +1,19 @@
 #include <gameDrawing.hpp>
 
 ALLEGRO_EVENT_QUEUE *event_queue_draw_thread = NULL;
+ALLEGRO_EVENT_QUEUE *event_queue_display = NULL;
+
 ALLEGRO_TIMER *timer_draw_thread = NULL;
+ALLEGRO_THREAD *p_draw_thread = NULL;
+
+ALLEGRO_DISPLAY *disp = NULL;
+ALLEGRO_BITMAP *buffer = NULL;
+
+ALLEGRO_DISPLAY *
+get_disp()
+{
+    return disp;
+}
 
 void disp_pre_draw()
 {
@@ -21,11 +33,37 @@ void draw_thread_deinit()
 
     al_destroy_timer(timer_draw_thread);
     al_destroy_event_queue(event_queue_draw_thread);
+
+    al_destroy_bitmap(buffer);
+    al_destroy_display(disp);
+    al_destroy_event_queue(event_queue_display);
+
     fprintf(stderr, "Draw thread deinit\n");
 }
 
-ALLEGRO_THREAD *draw_thread_init()
+ALLEGRO_THREAD *get_p_draw_thread()
 {
+    return p_draw_thread;
+}
+
+bool draw_thread_init()
+{
+
+    // DISP INIT
+    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
+    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
+
+    disp = al_create_display(DISP_W, DISP_H);
+    must_init(disp, "display");
+
+    buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
+    must_init(buffer, "bitmap buffer");
+
+    event_queue_display = al_create_event_queue();
+    must_init(event_queue_display, "display_event_queue");
+    al_register_event_source(event_queue_display, al_get_display_event_source(disp));
+
+    // THREAD INIT
     event_queue_draw_thread = al_create_event_queue();
     must_init(event_queue_draw_thread, "draw-thread-queue");
 
@@ -35,18 +73,19 @@ ALLEGRO_THREAD *draw_thread_init()
     al_register_event_source(event_queue_draw_thread, al_get_timer_event_source(timer_draw_thread));
     al_register_event_source(event_queue_draw_thread, &game_state_event_source); // Gstate informant
 
-    ALLEGRO_THREAD *ret = al_create_thread(draw_thread, NULL);
-    if (ret)
+    p_draw_thread = al_create_thread(draw_thread, NULL);
+    if (p_draw_thread)
     {
         //al_set_thread_should_stop(ret);
-        al_start_thread(ret);
+        al_start_thread(p_draw_thread);
         al_start_timer(timer_draw_thread);
 
-        return ret;
+        return true;
     }
     else
     {
-        return NULL;
+        p_draw_thread = NULL;
+        return false;
     }
 }
 
@@ -62,6 +101,7 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
         {
             al_wait_for_event(event_queue_draw_thread, &event);
         }
+        fprintf(stderr, "Go ahead granted: draw thread \n");
     }
 
     while (g_state != D_EXIT && g_state != D_RESTART)

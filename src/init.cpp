@@ -3,15 +3,7 @@
 // ---- general
 size_t frames = 0;
 size_t score = 0;
-GAME_STATES g_state = D_MENU;
-
-ALLEGRO_DISPLAY *disp;
-ALLEGRO_BITMAP *buffer;
-
-ALLEGRO_THREAD *p_draw_thread;
-ALLEGRO_THREAD *p_input_thread;
-
-ALLEGRO_EVENT_QUEUE *event_queue_display = NULL;
+GAME_STATES g_state = D_RUNNING;
 
 ALLEGRO_FONT *internal_font = NULL;
 
@@ -20,54 +12,50 @@ ALLEGRO_EVENT_SOURCE game_state_event_source;
 void init()
 {
     addons_init();
-    disp_init();
-    audio_init();
+    audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
     keyboard_init();
 
     internal_font = al_create_builtin_font();
     must_init(internal_font, "font_init_buildin");
-
     al_init_user_event_source(&game_state_event_source);
 
-    p_draw_thread = draw_thread_init();
-    p_input_thread = keyboard_input_thread_init();
+    create_display(); // FIRST DISPLAY  ! we need the frame for input management
+    create_input();
+}
+
+void create_display()
+{
+
+    must_init(draw_thread_init(), "create display: draw thread init");
+    fprintf(stderr, "created display + draw thread\n");
+}
+
+void destroy_display()
+{
+    al_join_thread(get_p_draw_thread(), NULL);
+    draw_thread_deinit();
+}
+
+void create_input()
+{
+    must_init(keyboard_input_thread_init(), "keyboard create");
+}
+
+void destroy_input()
+{
+    al_join_thread(get_p_input_thread(), NULL);
+    input_thread_deinit();
 }
 
 void deinit()
 {
-    al_join_thread(p_input_thread, NULL);
-    al_join_thread(p_draw_thread, NULL);
 
-    draw_thread_deinit();
-    input_thread_deinit();
+    destroy_input();
+    destroy_display();
+
     al_destroy_user_event_source(&game_state_event_source);
     al_destroy_font(internal_font);
-
     audio_deinit();
-    disp_deinit();
-}
-
-void disp_init()
-{
-    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
-    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
-
-    disp = al_create_display(DISP_W, DISP_H);
-    must_init(disp, "display");
-
-    buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
-    must_init(buffer, "bitmap buffer");
-
-    event_queue_display = al_create_event_queue();
-    must_init(event_queue_display, "display_event_queue");
-    al_register_event_source(event_queue_display, al_get_display_event_source(disp));
-}
-
-void disp_deinit()
-{
-    al_destroy_bitmap(buffer);
-    al_destroy_display(disp);
-    al_destroy_event_queue(event_queue_display);
 }
 
 void addons_init()

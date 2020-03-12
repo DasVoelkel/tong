@@ -164,6 +164,12 @@ int main() // MAIN IS OUR CONTROL THREAD
         case D_RESTART:
             fprintf(stderr, "Control saw draw thread restart\n");
             // close all threads, then restart them and recreate disp first !
+            destroy_input();
+            destroy_display();
+
+            create_input();
+            create_display();
+            g_state_update_event(D_RUNNING);
 
             break;
 

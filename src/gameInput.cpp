@@ -2,7 +2,7 @@
 
 unsigned char key[ALLEGRO_KEY_MAX];
 ALLEGRO_EVENT_QUEUE *event_queue_input_thread = NULL;
-
+ALLEGRO_THREAD *p_input_thread = NULL;
 void keyboard_init()
 {
     must_init(al_install_keyboard(), "keyboard");
@@ -34,25 +34,34 @@ void keyboard_seen()
         key[i] &= KEY_SEEN;
 }
 
-ALLEGRO_THREAD *keyboard_input_thread_init()
+ALLEGRO_THREAD *get_p_input_thread()
+{
+    return p_input_thread;
+}
+
+bool keyboard_input_thread_init()
 {
     event_queue_input_thread = al_create_event_queue();
     must_init(event_queue_input_thread, "draw-thread-queue");
 
     al_register_event_source(event_queue_input_thread, al_get_keyboard_event_source());
     al_register_event_source(event_queue_input_thread, &game_state_event_source); // Gstate informant
-    al_register_event_source(event_queue_input_thread, al_get_display_event_source(disp));
+    must_init(get_disp(), "need initialised disp to get frame input \n");
 
-    ALLEGRO_THREAD *ret = al_create_thread(input_thread, NULL);
-    if (ret)
+    al_register_event_source(event_queue_input_thread, al_get_display_event_source(get_disp()));
+
+    p_input_thread = al_create_thread(input_thread, NULL);
+    if (p_input_thread)
     {
         //al_set_thread_should_stop(ret);
-        al_start_thread(ret);
-        return ret;
+        al_start_thread(p_input_thread);
+        return true;
     }
     else
     {
-        return NULL;
+        p_input_thread = NULL;
+        return false;
+        ;
     }
 }
 
@@ -75,6 +84,7 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
         {
             al_wait_for_event(event_queue_input_thread, &event);
         }
+        fprintf(stderr, "Go ahead granted: input thread \n");
     }
 
     while (g_state != D_EXIT && g_state != D_RESTART)
