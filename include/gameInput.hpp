@@ -17,7 +17,8 @@ void input_thread_deinit();
 
 void keyboard_seen();
 
-ALLEGRO_THREAD *keyboard_input_thread_init();
+bool keyboard_input_thread_init();
 void *input_thread(ALLEGRO_THREAD *thr, void *arg);
 
 void process_keys();
+ALLEGRO_THREAD *get_p_input_thread();
