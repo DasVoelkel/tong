@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <vector>
 #include <string>
-#include <fstream>
 #include <iostream>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
@@ -13,9 +12,8 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_color.h>
 #include <helper.hpp>
-#include <nlohmann/json.hpp>
-#include <iomanip>
 
+#include <settings.hpp>
 #include <GameAssetCommon.hpp>
 #include <audio.hpp>
 #include <gameInput.hpp>
@@ -27,7 +25,6 @@
 #define DISP_SCALE 3
 #define DISP_W (BUFFER_W * DISP_SCALE)
 #define DISP_H (BUFFER_H * DISP_SCALE)
-#define OPT_NAME "options.json"
 
 // event for gstate changes
 #define G_STATE_CHANGE_EVENT_NUM 200
@@ -45,15 +42,6 @@ extern ALLEGRO_FONT *internal_font;
 extern ALLEGRO_EVENT_SOURCE game_state_event_source;
 
 void addons_init();
-
-bool read_options();
-nlohmann::json *get_options();
-
-nlohmann::json get_default_empty();
-bool create_default_opt();
-bool opt_file_exists(const char *name);
-
-bool save_opt(nlohmann::json data);
 
 /// addons
 void init();
