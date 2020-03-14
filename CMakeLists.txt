@@ -10,7 +10,7 @@ project(tong LANGUAGES CXX VERSION 0.01)
 add_compile_options(-std=c++17)
 
 
-PKG_CHECK_MODULES( PKG REQUIRED allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5)
+PKG_CHECK_MODULES( PKG REQUIRED allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 allegro_color-5)
 
 set(EXECUTABLE_OUTPUT_PATH ./${CMAKE_PROJECT_NAME})
 

@@ -153,6 +153,7 @@ void process_keys()
             default:
                 break;
             }
+            fprintf(stderr, "Processed: %s \n", al_keycode_to_name(processed_key_id));
         }
 
         key[processed_key_id] &= KEY_SEEN;

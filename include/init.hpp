@@ -11,6 +11,7 @@
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_image.h>
+#include <allegro5/allegro_color.h>
 #include <helper.hpp>
 #include <nlohmann/json.hpp>
 #include <iomanip>
@@ -20,7 +21,7 @@
 #include <gameInput.hpp>
 #include <gameDrawing.hpp>
 
-#define BUFFER_W 320
+#define BUFFER_W 480
 #define BUFFER_H 240
 
 #define DISP_SCALE 3
