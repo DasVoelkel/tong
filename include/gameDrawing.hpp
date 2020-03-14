@@ -2,6 +2,8 @@
 #include <cstdlib>
 #include <vector>
 
+#include <allegro5/allegro_color.h>
+
 #include <helper.hpp>
 #include <init.hpp>
 #include <GameAssetCommon.hpp>
