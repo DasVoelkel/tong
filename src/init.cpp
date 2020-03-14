@@ -9,6 +9,9 @@ ALLEGRO_FONT *internal_font = NULL;
 
 ALLEGRO_EVENT_SOURCE game_state_event_source;
 
+nlohmann::json json_buffer;
+nlohmann::json *json_buffer_p;
+
 void init()
 {
     addons_init();
@@ -126,11 +129,39 @@ bool opt_valid()
     return true;
 }
 
-nlohmann::json read_options()
+nlohmann::json *get_options()
+{
+    if (json_buffer_p)
+        return json_buffer_p;
+    else if (read_options)
+    {
+        return json_buffer_p;
+    }
+    else
+    {
+        fprintf(stderr, "can'T read opt \n");
+        assert(false);
+        return NULL;
+    }
+}
+void set_opt(nlohmann::json opt)
+{
+    json_buffer = opt;
+    json_buffer_p = &json_buffer;
+}
+
+void clear_opt()
+{
+    json_buffer = nlohmann::json({});
+    json_buffer_p = NULL;
+}
+
+bool read_options()
 {
     nlohmann::json opt_j = {};
 
     std::fstream opt_fs;
+
     if (opt_valid())
     {
         opt_fs.open(OPT_NAME, std::ios::in);
@@ -138,8 +169,8 @@ nlohmann::json read_options()
         opt_fs.close();
 
         fprintf(stderr, "returned opt file scanned \n");
-
-        return opt_j;
+        set_opt(opt_j);
+        return true;
     }
     else
     {
@@ -150,13 +181,15 @@ nlohmann::json read_options()
             opt_fs.close();
 
             fprintf(stderr, "returned opt file default \n");
+            set_opt(opt_j);
 
-            return opt_j;
+            return true;
         }
         else
         {
             fprintf(stderr, "Invalid opt file, can't create default \n");
-            return nlohmann::json({});
+            clear_opt();
+            return false;
         }
     }
     assert(false);

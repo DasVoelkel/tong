@@ -46,7 +46,9 @@ extern ALLEGRO_EVENT_SOURCE game_state_event_source;
 
 void addons_init();
 
-nlohmann::json read_options();
+bool read_options();
+nlohmann::json *get_options();
+
 nlohmann::json get_default_empty();
 bool create_default_opt();
 bool opt_file_exists(const char *name);
