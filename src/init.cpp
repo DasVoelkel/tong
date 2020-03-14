@@ -105,17 +105,23 @@ bool opt_valid()
     }
 
     // check if all settings are here, if not, it's invalid
-    nlohmann::json compare_value = get_default_empty();
+
+    nlohmann::json compare_value = get_default_empty().at("settings");
+
+    if ((opt_j.find("settings") == opt_j.end()))
+    {
+        fprintf(stderr, "essential settings missing, no settings at all \n");
+        return false;
+    }
 
     for (auto &el : compare_value.items())
     {
-        if (!(opt_j.find(el.key()) != opt_j.end()))
+        if (!(opt_j.at("settings").find(el.key()) != opt_j.at("settings").end()))
         {
             fprintf(stderr, "essential settings missing \n");
             return false;
         }
     }
-
     fprintf(stderr, "essential settings present \n");
     return true;
 }
@@ -190,18 +196,15 @@ bool save_opt(nlohmann::json data)
     return true;
 }
 
+#define DEFAULT_SETTINGS \
+    "{\"settings\":{\"fullscreen\":false,\"scale_fac\":3,\"anti_a\":5,\"audio_volume\":100}}"
 nlohmann::json get_default_empty()
 {
-    nlohmann::json ret = {
-        {"fullscreen", false},
-        {"scale_fac",
-         3},
-        {"anti_a",
-         5},
-        {"audio_volume", 100}};
+    nlohmann::json ret;
+
+    ret = nlohmann::json::parse(DEFAULT_SETTINGS);
     return ret;
 }
-
 /// init essentials
 
 void g_state_update_event(GAME_STATES _g_state)
