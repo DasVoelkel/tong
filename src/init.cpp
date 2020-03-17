@@ -12,7 +12,7 @@ ALLEGRO_EVENT_SOURCE game_state_event_source;
 void init()
 {
     addons_init();
-    //audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
+    audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
     keyboard_init();
 
     internal_font = al_create_builtin_font();
@@ -55,16 +55,16 @@ void deinit()
 
     al_destroy_user_event_source(&game_state_event_source);
     al_destroy_font(internal_font);
-    //audio_deinit();
+    audio_deinit();
 }
 
 void addons_init()
 {
     must_init(al_init_image_addon(), "image");
     must_init(al_init_primitives_addon(), "primitives");
-    //must_init(al_install_audio(), "audio");
+    must_init(al_install_audio(), "audio");
     must_init(al_init_acodec_addon(), "audio codecs");
-    //must_init(al_reserve_samples(16), "reserve samples");
+    must_init(al_reserve_samples(16), "reserve samples");
 }
 
 /// used by all TODO maybe move
