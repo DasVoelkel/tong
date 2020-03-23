@@ -20,6 +20,7 @@
 #include <audio.hpp>
 #include <sprites.hpp>
 #include <gameInput.hpp>
+
 // --- general ---
 
 // --- sprites ---
@@ -142,8 +143,6 @@ void sprites_deinit()
 int main() // MAIN IS OUR CONTROL THREAD
 {
 
-    read_options();
-    must_init(al_init(), "allegro");
     init();
 
     ALLEGRO_EVENT_QUEUE *event_queue_control_thread = al_create_event_queue();
