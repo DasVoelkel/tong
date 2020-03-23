@@ -72,7 +72,7 @@ nlohmann::json *get_options()
 {
     if (json_buffer_p)
         return json_buffer_p;
-    else if (read_options)
+    else if (read_options())
     {
         return json_buffer_p;
     }
@@ -177,3 +177,42 @@ bool save_opt()
     assert(false); // should not happen
 }
 
+bool get_fullscreen()
+{
+    return (bool)get_options()->at("settings").at("fullscreen");
+}
+
+size_t get_scale()
+{
+    return (size_t)get_options()->at("settings").at("scale_fac");
+}
+
+size_t get_anti_a()
+{
+    return (size_t)get_options()->at("settings").at("anti_a");
+}
+
+size_t get_audio_volume()
+{
+    return (size_t)get_options()->at("settings").at("audio_volume");
+}
+
+void set_fullscreen(bool new_val)
+{
+    (*get_options())["settings"]["fullscreen"] = new_val;
+}
+
+void set_scale(size_t new_val)
+{
+    (*get_options())["settings"]["scale_fac"] = new_val;
+}
+
+void set_anti_a(size_t new_val)
+{
+    (*get_options())["settings"]["anti_a"] = new_val;
+}
+
+void set_audio_volume(size_t new_val)
+{
+    (*get_options())["settings"]["audio_volume"] = new_val;
+}
