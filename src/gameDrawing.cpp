@@ -15,7 +15,6 @@ ALLEGRO_BITMAP *buffer = NULL;
 ALLEGRO_TRANSFORM transform;
 float scale_factor_x;
 float scale_factor_y;
-bool fullscreen_mode = false;
 
 ALLEGRO_DISPLAY *
 get_disp()
@@ -60,27 +59,25 @@ bool draw_thread_init()
 {
 
     // DISP INIT
-    if (fullscreen_mode)
-        al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
+    al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
     al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
     al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
 
     disp = al_create_display(DISP_W, DISP_H);
     must_init(disp, "display");
 
-    buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
-    must_init(buffer, "bitmap buffer");
-
     scale_factor_x = ((float)al_get_display_width(disp)) / BUFFER_W;
     scale_factor_y = ((float)al_get_display_height(disp)) / BUFFER_H;
-    if (fullscreen_mode)
-    {
 
-        al_set_target_bitmap(buffer);
-        al_identity_transform(&transform);
-        al_scale_transform(&transform, scale_factor_x, scale_factor_y);
-        al_use_transform(&transform);
-    }
+    buffer = al_create_bitmap(DISP_W, DISP_W);
+    must_init(buffer, "bitmap buffer");
+
+    //al_set_target_bitmap(buffer);
+    al_identity_transform(&transform);
+    al_scale_transform(&transform, scale_factor_x, scale_factor_y);
+    al_use_transform(&transform);
+
+
 
     // event for display actions
     event_queue_display = al_create_event_queue();

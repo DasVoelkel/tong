@@ -35,3 +35,5 @@
 build
 gimp
 peda*
+
+peda-session*
