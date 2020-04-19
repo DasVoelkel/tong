@@ -77,8 +77,6 @@ bool draw_thread_init()
     al_scale_transform(&transform, scale_factor_x, scale_factor_y);
     al_use_transform(&transform);
 
-
-
     // event for display actions
     event_queue_display = al_create_event_queue();
     must_init(event_queue_display, "display_event_queue");
@@ -151,4 +149,5 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
         }
     }
     fprintf(stderr, "drawing thread exit\n");
+    return NULL;
 }

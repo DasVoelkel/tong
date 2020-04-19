@@ -27,6 +27,7 @@ file(
 )
 add_executable( ${PROJECT_NAME} ${SRCS} )
 
+add_subdirectory(lib/)
 
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
