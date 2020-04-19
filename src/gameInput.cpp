@@ -127,6 +127,7 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
         }
     }
     fprintf(stderr, "input thread exit\n");
+    return NULL;
 }
 
 void process_keys()
