@@ -2,15 +2,15 @@
 
 
 cmake_minimum_required(VERSION 3.1)
-    INCLUDE(FindPkgConfig)
+INCLUDE(FindPkgConfig)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE DEBUG)
 
-project(tong LANGUAGES CXX VERSION 0.01)
+project(tong LANGUAGES CXX)
 add_compile_options(-std=c++17)
 
 
-PKG_CHECK_MODULES( PKG REQUIRED allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 allegro_color-5)
+PKG_CHECK_MODULES( PKG REQUIRED allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 allegro_color-5 allegro_ttf-5)
 
 set(EXECUTABLE_OUTPUT_PATH ./${CMAKE_PROJECT_NAME})
 

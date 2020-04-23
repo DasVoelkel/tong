@@ -6,7 +6,7 @@
         {
             "type": "shell",
             "label": "compile",
-            "command": " cmake .. && make -j ",
+            "command": " cmake .. && make -j 4 ",
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },

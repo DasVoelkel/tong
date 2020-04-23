@@ -11,6 +11,7 @@
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_color.h>
+#include <allegro5/allegro_ttf.h>
 #include <helper.hpp>
 
 #include <settings.hpp>
@@ -32,8 +33,8 @@
 extern size_t frames;
 extern size_t score;
 
-// control how the game reacts
-extern GAME_STATES g_state;
+// Program state
+extern THREAD_STATES program_state;
 
 // internal font from allegro, used all the time
 extern ALLEGRO_FONT *internal_font;
@@ -52,4 +53,4 @@ void create_input();
 void destroy_input();
 
 // send g-state update
-void g_state_update_event(GAME_STATES _g_state);
+void g_state_update_event(THREAD_STATES _g_state);

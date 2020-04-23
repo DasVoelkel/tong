@@ -59,7 +59,8 @@ bool draw_thread_init()
 {
 
     // DISP INIT
-    al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
+    if (get_fullscreen())
+        al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
     al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
     al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
 
@@ -96,6 +97,8 @@ bool draw_thread_init()
     if (p_draw_thread)
     {
         //al_set_thread_should_stop(ret);
+        al_set_window_title(get_disp(), "Tong");
+
         al_start_thread(p_draw_thread);
         al_start_timer(timer_draw_thread);
 
@@ -113,17 +116,17 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "Draw thread started\n");
     ALLEGRO_EVENT event;
 
-    if (g_state == D_RESTART)
+    if (program_state == D_RESTART)
     {
         fprintf(stderr, "started draw thread from restart waiting for go ahead \n");
-        while (g_state == D_RESTART)
+        while (program_state == D_RESTART)
         {
             al_wait_for_event(event_queue_draw_thread, &event);
         }
         fprintf(stderr, "Go ahead granted: draw thread \n");
     }
 
-    while (g_state != D_EXIT && g_state != D_RESTART)
+    while (program_state != D_EXIT && program_state != D_RESTART)
     {
 
         al_wait_for_event(event_queue_draw_thread, &event);
@@ -140,7 +143,7 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
             break;
         case G_STATE_CHANGE_EVENT_NUM:
             // check if we need to close the thread
-            fprintf(stderr, "drawing thread got gamestate change %i \n", g_state);
+            fprintf(stderr, "drawing thread got gamestate change %i \n", program_state);
 
             break;
         default:

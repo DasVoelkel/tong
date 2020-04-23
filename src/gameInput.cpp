@@ -53,7 +53,8 @@ bool keyboard_input_thread_init()
     p_input_thread = al_create_thread(input_thread, NULL);
     if (p_input_thread)
     {
-        //al_set_thread_should_stop(ret);
+        al_show_mouse_cursor(get_disp());
+        //al_set_new_bitmap_flags(ALLEGRO_VIDEO_BITMAP); // does this do anything?
         al_start_thread(p_input_thread);
         return true;
     }
@@ -77,17 +78,17 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "input thread started\n");
     ALLEGRO_EVENT event;
 
-    if (g_state == D_RESTART)
+    if (program_state == D_RESTART)
     {
         fprintf(stderr, "started input thread from restart waiting for go ahead \n");
-        while (g_state == D_RESTART)
+        while (program_state == D_RESTART)
         {
             al_wait_for_event(event_queue_input_thread, &event);
         }
         fprintf(stderr, "Go ahead granted: input thread \n");
     }
 
-    while (g_state != D_EXIT && g_state != D_RESTART)
+    while (program_state != D_EXIT && program_state != D_RESTART)
     {
         al_wait_for_event(event_queue_input_thread, &event);
 
@@ -114,7 +115,7 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg)
         case G_STATE_CHANGE_EVENT_NUM:
             // check if we need to close the thread
 
-            fprintf(stderr, "input thread got gamestate change %i \n", g_state);
+            fprintf(stderr, "input thread got gamestate change %i \n", program_state);
 
             break;
 

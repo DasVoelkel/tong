@@ -3,7 +3,7 @@
 // --- general
 size_t frames = 0;
 size_t score = 0;
-GAME_STATES g_state = D_RUNNING;
+THREAD_STATES program_state = D_RUNNING;
 
 ALLEGRO_FONT *internal_font = NULL;
 
@@ -41,6 +41,7 @@ void destroy_display()
 void create_input()
 {
     must_init(keyboard_input_thread_init(), "keyboard create");
+    must_init(al_install_mouse(), "al_install_mouse");
 }
 
 void destroy_input()
@@ -62,8 +63,9 @@ void deinit()
 
 void addons_init()
 {
-    must_init(al_init_image_addon(), "image");
-    must_init(al_init_primitives_addon(), "primitives");
+    must_init(al_init_image_addon(), "al_init_image_addon");
+    must_init(al_init_primitives_addon(), "al_init_primitives_addon");
+    must_init(al_init_ttf_addon(), "al_init_ttf_addon");
     //must_init(al_install_audio(), "audio");
     //must_init(al_init_acodec_addon(), "audio codecs");
     //must_init(al_reserve_samples(16), "reserve samples");
@@ -71,11 +73,11 @@ void addons_init()
 
 /// used by all TODO maybe move
 
-void g_state_update_event(GAME_STATES _g_state)
+void g_state_update_event(THREAD_STATES _g_state)
 {
     ALLEGRO_EVENT g_state_event;
     g_state_event.type = G_STATE_CHANGE_EVENT_NUM;
-    g_state = _g_state;
+    program_state = _g_state;
     if (al_emit_user_event(&game_state_event_source, &g_state_event, NULL))
     {
         fprintf(stderr, "success sending event change! \n ");
