@@ -3,7 +3,6 @@
 #include <vector>
 
 #include <allegro5/allegro_color.h>
-
 #include <types.hpp>
 #include <helper.hpp>
 #include <settings.hpp>

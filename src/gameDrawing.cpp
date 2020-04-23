@@ -5,7 +5,6 @@ namespace game_display_output
 size_t frames = 0;
 
 ALLEGRO_EVENT_QUEUE *event_queue_draw_thread = NULL;
-ALLEGRO_EVENT_QUEUE *event_queue_display = NULL;
 
 // timer for fps, thread to do that drawing
 ALLEGRO_TIMER *timer_draw_thread = NULL;
@@ -28,20 +27,25 @@ void disp_post_draw();
 
 bool start(ALLEGRO_EVENT_SOURCE *event_source)
 {
+    fprintf(stderr, "Draw thread starting\n");
+
     must_init(draw_thread_init(event_source), "draw_thread_init()");
     return true;
 }
 void stop()
 {
+    fprintf(stderr, "Draw thread stopping\n");
+
     al_join_thread(get_p_draw_thread(), NULL);
-    al_destroy_timer(timer_draw_thread);
-    al_destroy_event_queue(event_queue_draw_thread);
+    fprintf(stderr, "draw thread joined\n");
 
     al_destroy_bitmap(buffer);
+    buffer = NULL;
     al_destroy_display(disp);
-    al_destroy_event_queue(event_queue_display);
+    disp = NULL;
 
-    fprintf(stderr, "Draw thread deinit\n");
+    al_destroy_timer(timer_draw_thread);
+    al_destroy_event_queue(event_queue_draw_thread);
 }
 
 ALLEGRO_DISPLAY *get_disp()
@@ -51,8 +55,9 @@ ALLEGRO_DISPLAY *get_disp()
 
 void disp_pre_draw()
 {
-
+    //fprintf(stderr, "switchin to buffer \n");
     al_set_target_bitmap(buffer);
+    al_clear_to_color(al_map_rgb(0, 0, 0));
 }
 
 void disp_post_draw()
@@ -75,28 +80,20 @@ bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
     // DISP INIT
     if (get_fullscreen())
         al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
+
     al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
     al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
 
     disp = al_create_display(DISP_W, DISP_H);
     must_init(disp, "display");
-
     scale_factor_x = ((float)al_get_display_width(disp)) / BUFFER_W;
     scale_factor_y = ((float)al_get_display_height(disp)) / BUFFER_H;
 
-    buffer = al_create_bitmap(DISP_W, DISP_W);
+    buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
     must_init(buffer, "bitmap buffer");
-
-    //al_set_target_bitmap(buffer);
     al_identity_transform(&transform);
     al_scale_transform(&transform, scale_factor_x, scale_factor_y);
     al_use_transform(&transform);
-
-    // event for display actions
-    event_queue_display = al_create_event_queue();
-    must_init(event_queue_display, "display_event_queue");
-    al_register_event_source(event_queue_display, al_get_display_event_source(disp));
-
     // THREAD INIT
     event_queue_draw_thread = al_create_event_queue();
     must_init(event_queue_draw_thread, "draw-thread-queue");
@@ -151,13 +148,15 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
         switch (event.type)
         {
         case ALLEGRO_EVENT_TIMER:
+        {
 
             disp_pre_draw();
-            al_clear_to_color(al_color_name("black"));
-            al_draw_text(get_font(), al_color_name("white"), 1, 1, ALLEGRO_ALIGN_CENTER, "Hello world!");
+
+            al_draw_text(get_font(), al_color_name("white"), 1, 1, ALLEGRO_ALIGN_LEFT, "Hello world!");
 
             disp_post_draw();
             break;
+        }
         case G_STATE_CHANGE_EVENT_NUM:
             // check if we need to close the thread
             fprintf(stderr, "drawing thread got gamestate change %i \n", get_program_state());
