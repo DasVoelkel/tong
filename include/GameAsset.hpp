@@ -1,6 +1,6 @@
 #pragma once
 
-#include <GameAssetCommon.hpp>
+#include <types.hpp>
 #include <GameAssetAnimation.hpp>
 
 const int MAX_OBJ_NAME_LENGTH = 32;
@@ -13,7 +13,7 @@ private:
 public:
     bool _enable = true;
 
-    PLAYING_TYPE _playing = P_STATIONARY;
+    PLAYING_TYPE _playing = PLAYING_TYPE::P_STATIONARY;
     int _frame_counter = 0;
 
     ALLEGRO_SAMPLE *_sound_on_spawn = NULL;

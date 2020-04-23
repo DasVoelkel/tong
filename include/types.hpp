@@ -12,7 +12,7 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_color.h>
 
-enum OBJ_TYPE
+enum class OBJ_TYPE
 {
     // general
     gameborder,
@@ -33,7 +33,7 @@ enum OBJ_TYPE
     block_pyramid
 };
 
-enum PLAYING_TYPE
+enum class PLAYING_TYPE
 {
     P_SPAWN,
     P_STATIONARY,
@@ -46,11 +46,21 @@ struct point
     int x, y;
 };
 
-enum THREAD_STATES
+enum class THREAD_STATES
 {
+    D_STARTING,
     D_RUNNING,
-    D_RESTART,
+    D_RESTART, // turn this into "starting"!
     D_EXIT
 };
 
 inline const char *MENU_STATE[] = {"Menu", "Playing"};
+
+ALLEGRO_FONT *get_font();
+
+// essential
+#define G_STATE_CHANGE_EVENT_NUM 200
+
+THREAD_STATES get_program_state();
+void update_program_state(THREAD_STATES new_program_state);
+/// end

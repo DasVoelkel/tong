@@ -16,7 +16,7 @@ GameAsset::GameAsset(GameAssetAnimation *sprite_spawn, GameAssetAnimation *sprit
             fprintf(stderr, "Spawn sprite has less than 2 frames! ", _name);
             assert(false);
         }
-        _playing = P_SPAWN;
+        _playing = PLAYING_TYPE::P_SPAWN;
     }
 
     if (_sprite_death)
@@ -33,7 +33,7 @@ void GameAsset::reset()
 {
     bool _enable = true;
 
-    PLAYING_TYPE _playing = P_SPAWN;
+    PLAYING_TYPE _playing = PLAYING_TYPE::P_SPAWN;
     int _frame_counter = 0;
 }
 
@@ -46,7 +46,7 @@ bool GameAsset::draw(ALLEGRO_DISPLAY *disp)
 
     switch (_playing)
     {
-    case P_SPAWN:
+    case PLAYING_TYPE::P_SPAWN:
 
         if (_sprite_spawn->draw(disp, _coordinates, _frame_counter))
         {
@@ -60,12 +60,12 @@ bool GameAsset::draw(ALLEGRO_DISPLAY *disp)
 
         if (_frame_counter > _sprite_spawn->get_sprite_size())
         {
-            _playing = P_STATIONARY;
+            _playing = PLAYING_TYPE::P_STATIONARY;
             _frame_counter = 0;
         }
 
         break;
-    case P_STATIONARY:
+    case PLAYING_TYPE::P_STATIONARY:
 
         if (_sprite_stationary->draw(disp, _coordinates, _frame_counter))
         {
@@ -82,7 +82,7 @@ bool GameAsset::draw(ALLEGRO_DISPLAY *disp)
             _frame_counter = 0;
         }
         break;
-    case P_DEATH:
+    case PLAYING_TYPE::P_DEATH:
 
         if (_sprite_death->draw(disp, _coordinates, _frame_counter))
         {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <GameAssetCommon.hpp>
+#include <types.hpp>
 
 class GameAssetAnimation
 {
