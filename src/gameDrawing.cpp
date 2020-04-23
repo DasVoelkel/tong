@@ -69,7 +69,7 @@ ALLEGRO_THREAD *get_p_draw_thread()
     return draw_thread_pointer;
 }
 
-bool draw_thread_init(ALLEGRO_EVENT_SOURCE *event_source)
+bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
 {
 
     // DISP INIT
@@ -105,7 +105,9 @@ bool draw_thread_init(ALLEGRO_EVENT_SOURCE *event_source)
     must_init(timer_draw_thread, "draw-thread-timer");
 
     al_register_event_source(event_queue_draw_thread, al_get_timer_event_source(timer_draw_thread));
-    al_register_event_source(event_queue_draw_thread, event_source); // Gstate informant
+    al_register_event_source(event_queue_draw_thread, al_get_display_event_source(get_disp())); // Gstate informant
+
+    al_register_event_source(event_queue_draw_thread, control_event_source); // Gstate informant
 
     draw_thread_pointer = al_create_thread(draw_thread, NULL);
     if (draw_thread_pointer)
@@ -131,10 +133,10 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "Draw thread started\n");
     ALLEGRO_EVENT event;
 
-    if (get_program_state() == THREAD_STATES::D_RESTART)
+    if (get_program_state() == THREAD_STATES::D_RESTART || get_program_state() == THREAD_STATES::D_STARTING)
     {
-        fprintf(stderr, "started draw thread from restart waiting for go ahead \n");
-        while (get_program_state() == THREAD_STATES::D_RESTART)
+        fprintf(stderr, "started draw thread, waiting for go ahead \n");
+        while (get_program_state() == THREAD_STATES::D_RESTART || get_program_state() == THREAD_STATES::D_STARTING)
         {
             al_wait_for_event(event_queue_draw_thread, &event);
         }
@@ -160,6 +162,10 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
             // check if we need to close the thread
             fprintf(stderr, "drawing thread got gamestate change %i \n", get_program_state());
 
+            break;
+        case ALLEGRO_EVENT_DISPLAY_CLOSE:
+            // closing the window
+            update_program_state(THREAD_STATES::D_EXIT);
             break;
         default:
             fprintf(stderr, "unexpected event in draw thread!>%i<\n", event.type);

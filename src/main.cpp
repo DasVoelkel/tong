@@ -185,9 +185,8 @@ int main() // MAIN IS OUR CONTROL THREAD
         case THREAD_STATES::D_STARTING:
             fprintf(stderr, "Starting Program\n");
             game_display_output::start(&control_event_source);
-            game_input::start(&control_event_source, al_get_display_event_source(game_display_output::get_disp()));
-            while (get_program_state() == THREAD_STATES::D_STARTING)
-                al_wait_for_event(event_queue_control_thread, &event);
+            game_input::start(&control_event_source);
+            update_program_state(THREAD_STATES::D_RUNNING);
 
             break;
 
@@ -197,7 +196,7 @@ int main() // MAIN IS OUR CONTROL THREAD
             game_input::stop();
             game_display_output::stop();
 
-            game_input::start(&control_event_source, al_get_display_event_source(game_display_output::get_disp()));
+            game_input::start(&control_event_source);
             game_display_output::start(&control_event_source);
 
             update_program_state(THREAD_STATES::D_RUNNING);
