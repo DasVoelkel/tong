@@ -56,7 +56,10 @@ enum class THREAD_STATES
 
 inline const char *MENU_STATE[] = {"Menu", "Playing"};
 
+#define BG_COLOR_NAME "black"
+
 ALLEGRO_FONT *get_font();
+ALLEGRO_COLOR get_background_color();
 
 // essential
 #define G_STATE_CHANGE_EVENT_NUM 200

@@ -142,7 +142,7 @@ void update_program_state(THREAD_STATES new_program_state)
     program_state = new_program_state;
     if (al_emit_user_event(&control_event_source, &g_state_event, NULL))
     {
-        fprintf(stderr, "success sending event change! \n ");
+        fprintf(stderr, "success sending event change! changing to %i\n ", (int)new_program_state);
     }
     else
     {
@@ -191,9 +191,13 @@ int main() // MAIN IS OUR CONTROL THREAD
             break;
 
         case THREAD_STATES::D_RESTART:
-            fprintf(stderr, "Restart Control\n");
+            fprintf(stderr, "Restart Program\n");
             // close all threads, then restart them and recreate disp first !
+            fprintf(stderr, "stop input \n");
+
             game_input::stop();
+            fprintf(stderr, "stop drawing \n");
+
             game_display_output::stop();
 
             game_input::start(&control_event_source);
@@ -209,7 +213,11 @@ int main() // MAIN IS OUR CONTROL THREAD
 
         case THREAD_STATES::D_EXIT:
             fprintf(stderr, "Exit Program\n");
+            fprintf(stderr, "stop input \n");
+
             game_input::stop();
+            fprintf(stderr, "stop drawing \n");
+
             game_display_output::stop();
 
             al_destroy_user_event_source(&control_event_source);

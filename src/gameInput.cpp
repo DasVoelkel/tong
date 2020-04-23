@@ -13,12 +13,15 @@ void *input_thread(ALLEGRO_THREAD *thr, void *arg);
 
 void start(ALLEGRO_EVENT_SOURCE *event_source)
 {
+    fprintf(stderr, "Input thread starting\n");
+
     memset(key, 0, sizeof(key));
     keyboard_input_thread_init(event_source);
 }
 
 void stop()
 {
+    fprintf(stderr, "Input thread stopping\n");
 
     al_join_thread(get_p_input_thread(), NULL);
     al_destroy_event_queue(event_queue_input_thread);

@@ -14,3 +14,16 @@ ALLEGRO_FONT *get_font()
         return internal_font;
     }
 }
+
+ALLEGRO_COLOR bg_color;
+ALLEGRO_COLOR *bg_color_p = NULL;
+ALLEGRO_COLOR get_background_color()
+{
+    if (bg_color_p)
+        return bg_color;
+    else
+    {
+        bg_color = al_color_name(BG_COLOR_NAME);
+        bg_color_p = &bg_color;
+    }
+}
