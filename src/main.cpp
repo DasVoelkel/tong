@@ -151,11 +151,11 @@ int main() // MAIN IS OUR CONTROL THREAD
 
     ALLEGRO_EVENT event;
 
-    while (g_state != D_EXIT)
+    while (program_state != D_EXIT)
     {
         al_wait_for_event(event_queue_control_thread, &event);
 
-        switch (g_state)
+        switch (program_state)
         {
         case D_EXIT:
             break;

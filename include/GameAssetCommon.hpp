@@ -46,10 +46,11 @@ struct point
     int x, y;
 };
 
-enum GAME_STATES
+enum THREAD_STATES
 {
-
     D_RUNNING,
     D_RESTART,
     D_EXIT
 };
+
+inline const char *MENU_STATE[] = {"Menu", "Playing"};

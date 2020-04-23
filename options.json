@@ -1,0 +1,8 @@
+{
+    "settings": {
+        "anti_a": 5,
+        "audio_volume": 100,
+        "fullscreen": false,
+        "scale_fac": 3
+    }
+}
