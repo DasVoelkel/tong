@@ -1,26 +1,21 @@
-/* this is a complete copy of the source from allegro vivace's 'gameplay' section.
- *
- * for gcc users, it can be compiled & run with:
- *
- * gcc game.c -o game $(pkg-config allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 --libs --cflags)
- * ./game
- */
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <atomic>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_image.h>
+#include <allegro5/allegro_ttf.h>
 
+#include <types.hpp>
 #include <helper.hpp>
-#include <init.hpp>
 #include <audio.hpp>
 #include <sprites.hpp>
-#include <gameInput.hpp>
 
+#include <gameInput.hpp>
+#include <gameDrawing.hpp>
 // --- general ---
 
 // --- sprites ---
@@ -136,40 +131,91 @@ void sprites_deinit()
     al_destroy_bitmap(sprites._sheet);
 }
 
-// --- fx ---
+// --- program control ---
+std::atomic<THREAD_STATES> program_state{THREAD_STATES::D_STARTING};
+ALLEGRO_EVENT_SOURCE control_event_source;
 
-// --- main ---
+void update_program_state(THREAD_STATES new_program_state)
+{
+    ALLEGRO_EVENT g_state_event;
+    g_state_event.type = G_STATE_CHANGE_EVENT_NUM;
+    program_state = new_program_state;
+    if (al_emit_user_event(&control_event_source, &g_state_event, NULL))
+    {
+        fprintf(stderr, "success sending event change! \n ");
+    }
+    else
+    {
+        fprintf(stderr, "fail sending event change! \n");
+        assert(false);
+    }
+}
+
+THREAD_STATES get_program_state()
+{
+    return program_state;
+}
 
 int main() // MAIN IS OUR CONTROL THREAD
 {
+    // init essentials
+    must_init(al_init(), "allegro");
+    must_init(al_install_mouse(), "al_install_mouse");
+    must_init(al_install_keyboard(), "keyboard");
 
-    init();
+    must_init(al_init_image_addon(), "al_init_image_addon");
+    must_init(al_init_primitives_addon(), "al_init_primitives_addon");
+    must_init(al_init_ttf_addon(), "al_init_ttf_addon");
+
+    //audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
+
+    al_init_user_event_source(&control_event_source);
 
     ALLEGRO_EVENT_QUEUE *event_queue_control_thread = al_create_event_queue();
     must_init(event_queue_control_thread, "event-queue-control-thread");
-    al_register_event_source(event_queue_control_thread, &game_state_event_source);
+    al_register_event_source(event_queue_control_thread, &control_event_source);
 
     ALLEGRO_EVENT event;
 
-    while (program_state != D_EXIT)
+    while (get_program_state() != THREAD_STATES::D_EXIT)
     {
-        al_wait_for_event(event_queue_control_thread, &event);
 
-        switch (program_state)
+        switch (get_program_state())
         {
-        case D_EXIT:
+        case THREAD_STATES::D_STARTING:
+            fprintf(stderr, "Starting Program\n");
+            game_display_output::start(&control_event_source);
+            game_input::start(&control_event_source, al_get_display_event_source(game_display_output::get_disp()));
+            while (get_program_state() == THREAD_STATES::D_STARTING)
+                al_wait_for_event(event_queue_control_thread, &event);
+
             break;
 
-        case D_RESTART:
-            fprintf(stderr, "Control saw draw thread restart\n");
+        case THREAD_STATES::D_RESTART:
+            fprintf(stderr, "Restart Control\n");
             // close all threads, then restart them and recreate disp first !
-            destroy_input();
-            destroy_display();
+            game_input::stop();
+            game_display_output::stop();
 
-            create_input();
-            create_display();
-            g_state_update_event(D_RUNNING);
+            game_input::start(&control_event_source, al_get_display_event_source(game_display_output::get_disp()));
+            game_display_output::start(&control_event_source);
 
+            update_program_state(THREAD_STATES::D_RUNNING);
+
+            break;
+        case THREAD_STATES::D_RUNNING:
+            al_wait_for_event(event_queue_control_thread, &event);
+
+            break;
+
+        case THREAD_STATES::D_EXIT:
+            fprintf(stderr, "Exit Program\n");
+            game_input::stop();
+            game_display_output::stop();
+
+            al_destroy_user_event_source(&control_event_source);
+            al_destroy_font(get_font());
+            audio_deinit();
             break;
 
         default:
@@ -178,8 +224,6 @@ int main() // MAIN IS OUR CONTROL THREAD
             break;
         }
     }
-
-    deinit();
 
     exit(0);
 }

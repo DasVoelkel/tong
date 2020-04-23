@@ -1,11 +1,15 @@
 #include <gameDrawing.hpp>
 
+namespace game_display_output
+{
+size_t frames = 0;
+
 ALLEGRO_EVENT_QUEUE *event_queue_draw_thread = NULL;
 ALLEGRO_EVENT_QUEUE *event_queue_display = NULL;
 
 // timer for fps, thread to do that drawing
 ALLEGRO_TIMER *timer_draw_thread = NULL;
-ALLEGRO_THREAD *p_draw_thread = NULL;
+ALLEGRO_THREAD *draw_thread_pointer = NULL;
 
 //we switch from buffer to display when buffer is drawn
 ALLEGRO_DISPLAY *disp = NULL;
@@ -16,8 +20,31 @@ ALLEGRO_TRANSFORM transform;
 float scale_factor_x;
 float scale_factor_y;
 
-ALLEGRO_DISPLAY *
-get_disp()
+// prototypes
+void *draw_thread(ALLEGRO_THREAD *thr, void *arg);
+bool draw_thread_init(ALLEGRO_EVENT_SOURCE *event_source);
+void disp_pre_draw();
+void disp_post_draw();
+
+bool start(ALLEGRO_EVENT_SOURCE *event_source)
+{
+    must_init(draw_thread_init(event_source), "draw_thread_init()");
+    return true;
+}
+void stop()
+{
+    al_join_thread(get_p_draw_thread(), NULL);
+    al_destroy_timer(timer_draw_thread);
+    al_destroy_event_queue(event_queue_draw_thread);
+
+    al_destroy_bitmap(buffer);
+    al_destroy_display(disp);
+    al_destroy_event_queue(event_queue_display);
+
+    fprintf(stderr, "Draw thread deinit\n");
+}
+
+ALLEGRO_DISPLAY *get_disp()
 {
     return disp;
 }
@@ -37,25 +64,12 @@ void disp_post_draw()
     al_flip_display();
 }
 
-void draw_thread_deinit()
-{
-
-    al_destroy_timer(timer_draw_thread);
-    al_destroy_event_queue(event_queue_draw_thread);
-
-    al_destroy_bitmap(buffer);
-    al_destroy_display(disp);
-    al_destroy_event_queue(event_queue_display);
-
-    fprintf(stderr, "Draw thread deinit\n");
-}
-
 ALLEGRO_THREAD *get_p_draw_thread()
 {
-    return p_draw_thread;
+    return draw_thread_pointer;
 }
 
-bool draw_thread_init()
+bool draw_thread_init(ALLEGRO_EVENT_SOURCE *event_source)
 {
 
     // DISP INIT
@@ -91,22 +105,23 @@ bool draw_thread_init()
     must_init(timer_draw_thread, "draw-thread-timer");
 
     al_register_event_source(event_queue_draw_thread, al_get_timer_event_source(timer_draw_thread));
-    al_register_event_source(event_queue_draw_thread, &game_state_event_source); // Gstate informant
+    al_register_event_source(event_queue_draw_thread, event_source); // Gstate informant
 
-    p_draw_thread = al_create_thread(draw_thread, NULL);
-    if (p_draw_thread)
+    draw_thread_pointer = al_create_thread(draw_thread, NULL);
+    if (draw_thread_pointer)
     {
         //al_set_thread_should_stop(ret);
-        al_set_window_title(get_disp(), "Tong");
+        al_set_window_title(get_disp(), "Tong"); // TODO do this
 
-        al_start_thread(p_draw_thread);
+        al_start_thread(draw_thread_pointer);
         al_start_timer(timer_draw_thread);
+        al_show_mouse_cursor(get_disp());
 
         return true;
     }
     else
     {
-        p_draw_thread = NULL;
+        draw_thread_pointer = NULL;
         return false;
     }
 }
@@ -116,17 +131,17 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "Draw thread started\n");
     ALLEGRO_EVENT event;
 
-    if (program_state == D_RESTART)
+    if (get_program_state() == THREAD_STATES::D_RESTART)
     {
         fprintf(stderr, "started draw thread from restart waiting for go ahead \n");
-        while (program_state == D_RESTART)
+        while (get_program_state() == THREAD_STATES::D_RESTART)
         {
             al_wait_for_event(event_queue_draw_thread, &event);
         }
         fprintf(stderr, "Go ahead granted: draw thread \n");
     }
 
-    while (program_state != D_EXIT && program_state != D_RESTART)
+    while (get_program_state() != THREAD_STATES::D_EXIT && get_program_state() != THREAD_STATES::D_RESTART)
     {
 
         al_wait_for_event(event_queue_draw_thread, &event);
@@ -137,13 +152,13 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
 
             disp_pre_draw();
             al_clear_to_color(al_color_name("black"));
-            al_draw_text(internal_font, al_color_name("white"), 1, 1, ALLEGRO_ALIGN_CENTER, "Hello world!");
+            al_draw_text(get_font(), al_color_name("white"), 1, 1, ALLEGRO_ALIGN_CENTER, "Hello world!");
 
             disp_post_draw();
             break;
         case G_STATE_CHANGE_EVENT_NUM:
             // check if we need to close the thread
-            fprintf(stderr, "drawing thread got gamestate change %i \n", program_state);
+            fprintf(stderr, "drawing thread got gamestate change %i \n", get_program_state());
 
             break;
         default:
@@ -154,3 +169,5 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     fprintf(stderr, "drawing thread exit\n");
     return NULL;
 }
+
+} // namespace game_display_output
