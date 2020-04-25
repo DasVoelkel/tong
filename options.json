@@ -2,7 +2,7 @@
     "settings": {
         "anti_a": 5,
         "audio_volume": 100,
-        "fullscreen": false,
+        "fullscreen": true,
         "scale_fac": 3
     }
 }

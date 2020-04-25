@@ -158,7 +158,6 @@ THREAD_STATES get_program_state()
 
 int main() // MAIN IS OUR CONTROL THREAD
 {
-    fprintf(stderr, "---START---\n");
 
     // init essentials
     must_init(al_init(), "allegro");
@@ -168,6 +167,8 @@ int main() // MAIN IS OUR CONTROL THREAD
     must_init(al_init_image_addon(), "al_init_image_addon");
     must_init(al_init_primitives_addon(), "al_init_primitives_addon");
     must_init(al_init_ttf_addon(), "al_init_ttf_addon");
+
+    fprintf(stderr, "---START---\n");
 
     //audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
 
