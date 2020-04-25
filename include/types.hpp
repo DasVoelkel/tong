@@ -12,6 +12,9 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_color.h>
 
+// essential
+#define G_STATE_CHANGE_EVENT_NUM 200
+
 enum class OBJ_TYPE
 {
     // general
@@ -54,17 +57,20 @@ enum class THREAD_STATES
     D_EXIT
 };
 
-inline const char *MENU_STATE[] = {"Menu", "Playing"};
+enum class RENDER_SCENES
+{
+    R_M_MAIN,
+    R_M_OPTIONS,
+    R_M_LOBBY,
+    R_GAME
+};
 
 const char *repr(THREAD_STATES state);
-
+const char *repr(RENDER_SCENES target);
 #define BG_COLOR_NAME "black"
 
 ALLEGRO_FONT *get_font();
 ALLEGRO_COLOR get_background_color();
-
-// essential
-#define G_STATE_CHANGE_EVENT_NUM 200
 
 THREAD_STATES get_program_state();
 void update_program_state(THREAD_STATES new_program_state);

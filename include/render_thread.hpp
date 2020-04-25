@@ -1,13 +1,14 @@
 #include <iostream>
 #include <cstdlib>
 #include <vector>
+#include <atomic>
 
 #include <allegro5/allegro_color.h>
 #include <types.hpp>
 #include <helper.hpp>
 #include <settings.hpp>
 
-namespace game_display_output
+namespace render_thread
 {
 
 #define BUFFER_W 480
@@ -27,4 +28,4 @@ void stop();
 ALLEGRO_THREAD *get_p_draw_thread(); // ever used ?
 ALLEGRO_DISPLAY *get_disp();
 
-} // namespace game_display_output
+} // namespace render_thread

@@ -6,7 +6,7 @@
 #include <helper.hpp>
 #include <types.hpp>
 
-namespace game_input
+namespace input_thread
 {
 
 #define KEY_SEEN 1
@@ -17,4 +17,4 @@ void stop();
 
 ALLEGRO_THREAD *get_p_input_thread();
 
-} // namespace game_input
+} // namespace input_thread
