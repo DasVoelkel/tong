@@ -1,6 +1,6 @@
-#include <gameDrawing.hpp>
+#include <render_thread.hpp>
 
-namespace game_display_output
+namespace render_thread
 {
 size_t frames = 0;
 
@@ -8,7 +8,7 @@ ALLEGRO_EVENT_QUEUE *event_queue_draw_thread = NULL;
 
 // timer for fps, thread to do that drawing
 ALLEGRO_TIMER *timer_draw_thread = NULL;
-ALLEGRO_THREAD *draw_thread_pointer = NULL;
+ALLEGRO_THREAD *render_thread_pointer = NULL;
 
 //we switch from buffer to display when buffer is drawn
 ALLEGRO_DISPLAY *disp = NULL;
@@ -19,9 +19,11 @@ ALLEGRO_TRANSFORM transform;
 float scale_factor_x;
 float scale_factor_y;
 
+std::atomic<RENDER_SCENES> rendering_scene{RENDER_SCENES::R_M_MAIN};
+
 // prototypes
-void *draw_thread(ALLEGRO_THREAD *thr, void *arg);
-bool draw_thread_init(ALLEGRO_EVENT_SOURCE *event_source);
+void *render_thread(ALLEGRO_THREAD *thr, void *arg);
+bool render_thread_init(ALLEGRO_EVENT_SOURCE *event_source);
 void disp_pre_draw();
 void disp_post_draw();
 
@@ -29,7 +31,7 @@ bool start(ALLEGRO_EVENT_SOURCE *event_source)
 {
     fprintf(stderr, "Draw thread starting\n");
 
-    must_init(draw_thread_init(event_source), "draw_thread_init()");
+    must_init(render_thread_init(event_source), "render_thread_init()");
     return true;
 }
 void stop()
@@ -53,6 +55,15 @@ ALLEGRO_DISPLAY *get_disp()
     return disp;
 }
 
+void set_render_target(RENDER_SCENES target)
+{
+    rendering_scene = target;
+}
+RENDER_SCENES get_render_target()
+{
+    return rendering_scene;
+}
+
 void disp_pre_draw()
 {
     //fprintf(stderr, "switchin to buffer \n");
@@ -72,10 +83,10 @@ void disp_post_draw()
 
 ALLEGRO_THREAD *get_p_draw_thread()
 {
-    return draw_thread_pointer;
+    return render_thread_pointer;
 }
 
-bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
+bool render_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
 {
 
     // DISP INIT
@@ -105,13 +116,12 @@ bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
 
     al_register_event_source(event_queue_draw_thread, control_event_source); // Gstate informant
 
-    draw_thread_pointer = al_create_thread(draw_thread, NULL);
-    if (draw_thread_pointer)
+    render_thread_pointer = al_create_thread(render_thread, NULL);
+    if (render_thread_pointer)
     {
         //al_set_thread_should_stop(ret);
-        al_set_window_title(get_disp(), "Tong"); // TODO do this
 
-        al_start_thread(draw_thread_pointer);
+        al_start_thread(render_thread_pointer);
         al_start_timer(timer_draw_thread);
         al_show_mouse_cursor(get_disp());
 
@@ -119,12 +129,12 @@ bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
     }
     else
     {
-        draw_thread_pointer = NULL;
+        render_thread_pointer = NULL;
         return false;
     }
 }
 
-void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
+void *render_thread(ALLEGRO_THREAD *thr, void *arg)
 {
     fprintf(stderr, "Draw thread started\n");
     ALLEGRO_EVENT event;
@@ -182,4 +192,4 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
     return NULL;
 }
 
-} // namespace game_display_output
+} // namespace render_thread

@@ -1,5 +1,5 @@
-#include <gameInput.hpp>
-namespace game_input
+#include <input_thread.hpp>
+namespace input_thread
 {
 
 unsigned char key[ALLEGRO_KEY_MAX];
@@ -165,4 +165,4 @@ void process_keys()
         key[processed_key_id] &= KEY_SEEN;
     }
 }
-} // namespace game_input
+} // namespace input_thread

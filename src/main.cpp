@@ -14,8 +14,8 @@
 #include <audio.hpp>
 #include <sprites.hpp>
 
-#include <gameInput.hpp>
-#include <gameDrawing.hpp>
+#include <input_thread.hpp>
+#include <render_thread.hpp>
 // --- general ---
 
 // --- sprites ---
@@ -186,8 +186,8 @@ int main() // MAIN IS OUR CONTROL THREAD
         {
         case THREAD_STATES::D_STARTING:
             fprintf(stderr, "Starting Program\n");
-            game_display_output::start(&control_event_source);
-            game_input::start(&control_event_source);
+            render_thread::start(&control_event_source);
+            input_thread::start(&control_event_source);
             update_program_state(THREAD_STATES::D_RUNNING);
 
             break;
@@ -197,13 +197,13 @@ int main() // MAIN IS OUR CONTROL THREAD
             // close all threads, then restart them and recreate disp first !
             fprintf(stderr, "stop input \n");
 
-            game_input::stop();
+            input_thread::stop();
             fprintf(stderr, "stop drawing \n");
 
-            game_display_output::stop();
+            render_thread::stop();
 
-            game_input::start(&control_event_source);
-            game_display_output::start(&control_event_source);
+            input_thread::start(&control_event_source);
+            render_thread::start(&control_event_source);
 
             update_program_state(THREAD_STATES::D_RUNNING);
 
@@ -217,10 +217,10 @@ int main() // MAIN IS OUR CONTROL THREAD
             fprintf(stderr, "Exit Program\n");
             fprintf(stderr, "stop input \n");
 
-            game_input::stop();
+            input_thread::stop();
             fprintf(stderr, "stop drawing \n");
 
-            game_display_output::stop();
+            render_thread::stop();
 
             al_destroy_user_event_source(&control_event_source);
             al_destroy_font(get_font());
