@@ -160,8 +160,8 @@ void *render_thread(ALLEGRO_THREAD *thr, void *arg)
         {
 
             disp_pre_draw();
-
-            al_draw_text(get_font(), al_color_name("white"), 1, 1, ALLEGRO_ALIGN_LEFT, "Hello world!");
+            rendering::render(get_disp(), get_render_target());
+            //al_draw_text(get_font(), al_color_name("white"), 1, 1, ALLEGRO_ALIGN_LEFT, "Hello world!");
 
             disp_post_draw();
             break;

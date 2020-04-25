@@ -68,9 +68,11 @@ enum class RENDER_SCENES
 const char *repr(THREAD_STATES state);
 const char *repr(RENDER_SCENES target);
 #define BG_COLOR_NAME "black"
+#define GAME_TITLE "Pong"
 
 ALLEGRO_FONT *get_font();
 ALLEGRO_COLOR get_background_color();
+const char *get_game_title();
 
 THREAD_STATES get_program_state();
 void update_program_state(THREAD_STATES new_program_state);
