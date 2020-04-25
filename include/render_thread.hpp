@@ -3,10 +3,10 @@
 #include <vector>
 #include <atomic>
 
-#include <allegro5/allegro_color.h>
 #include <types.hpp>
 #include <helper.hpp>
 #include <settings.hpp>
+#include <rendering.hpp>
 
 namespace render_thread
 {

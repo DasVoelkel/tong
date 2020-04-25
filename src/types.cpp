@@ -73,3 +73,8 @@ const char *repr(RENDER_SCENES target)
         break;
     }
 }
+
+const char *get_game_title()
+{
+    return GAME_TITLE;
+}
