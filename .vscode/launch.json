@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/tong/tong",
+            "program": "${workspaceFolder}/build/mygame/mygame",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

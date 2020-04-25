@@ -16,6 +16,7 @@
 
 #include <input_thread.hpp>
 #include <render_thread.hpp>
+
 // --- general ---
 
 // --- sprites ---
