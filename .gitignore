@@ -34,4 +34,4 @@
 build
 gimp
 peda-session*
-cmake-build-debug
+cmake-build-debug/
