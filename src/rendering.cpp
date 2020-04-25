@@ -1,12 +1,62 @@
 #include <rendering.hpp>
 
+#include <WidgetCreator.hpp>
 namespace rendering
 {
 size_t display_width = 0;
 size_t display_height = 0;
 
+agui::Gui *gui = NULL;
+agui::Allegro5Input *inputHandler = NULL;
+agui::Allegro5Graphics *graphicsHandler = NULL;
+agui::Font *defaultFont = NULL;
+
+WidgetCreator *creator = NULL;
+
+void rendergui();
+
+void initializeAgui()
+{
+
+    //Set the image loader
+    agui::Image::setImageLoader(new agui::Allegro5ImageLoader);
+
+    //Set the font loader
+    agui::Font::setFontLoader(new agui::Allegro5FontLoader);
+
+    //Instance the input handler
+    inputHandler = new agui::Allegro5Input();
+
+    //Instance the graphics handler
+    graphicsHandler = new agui::Allegro5Graphics();
+
+    //Allegro does not automatically premultiply alpha so let Agui do it
+    agui::Color::setPremultiplyAlpha(true);
+
+    //Instance the gui
+    gui = new agui::Gui();
+
+    //Set the input handler
+    gui->setInput(inputHandler);
+
+    //Set the graphics handler
+    gui->setGraphics(graphicsHandler);
+
+    defaultFont = agui::Font::load("assets/DejaVuSans.ttf", 16);
+
+    //Setting a global font is required and failure to do so will crash.
+    agui::Widget::setGlobalFont(defaultFont);
+}
+
 void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene)
 {
+    {
+        if (!gui)
+        {
+            initializeAgui();
+            rendergui();
+        }
+    }
     {
         std::string title(get_game_title());
         title += " - ";
@@ -34,4 +84,36 @@ void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene)
     }
 }
 
+void addWidgets()
+{
+    creator = new WidgetCreator(gui);
+}
+
+void cleanUp() // TODO call this on exit
+{
+    if (gui)
+    {
+
+        gui->getTop()->clear();
+        delete creator;
+        creator = NULL;
+        delete gui;
+        gui = NULL;
+        delete inputHandler;
+        delete graphicsHandler;
+        inputHandler = NULL;
+        graphicsHandler = NULL;
+
+        delete defaultFont;
+        defaultFont = NULL;
+    }
+}
+
+void rendergui()
+{
+    al_clear_to_color(al_map_rgb(240, 240, 240));
+
+    //render the widgets
+    gui->render();
+}
 } // namespace rendering

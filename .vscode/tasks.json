@@ -6,9 +6,9 @@
         {
             "type": "shell",
             "label": "compile",
-            "command": " cmake .. && make -j 4 ",
+            "command": "mkdir -p build/ && cd build &&  cmake .. && make -j 4 ",
             "options": {
-                "cwd": "${workspaceFolder}/build"
+                "cwd": "${workspaceFolder}"
             },
             "group": {
                 "kind": "build",
