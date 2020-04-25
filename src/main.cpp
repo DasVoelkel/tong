@@ -142,7 +142,7 @@ void update_program_state(THREAD_STATES new_program_state)
     program_state = new_program_state;
     if (al_emit_user_event(&control_event_source, &g_state_event, NULL))
     {
-        fprintf(stderr, "success sending event change! changing to %i\n ", (int)new_program_state);
+        fprintf(stderr, "success sending event change! changing to %s\n ", repr(new_program_state));
     }
     else
     {
@@ -158,6 +158,8 @@ THREAD_STATES get_program_state()
 
 int main() // MAIN IS OUR CONTROL THREAD
 {
+    fprintf(stderr, "---START---\n");
+
     // init essentials
     must_init(al_init(), "allegro");
     must_init(al_install_mouse(), "al_install_mouse");
@@ -177,7 +179,7 @@ int main() // MAIN IS OUR CONTROL THREAD
 
     ALLEGRO_EVENT event;
 
-    while (get_program_state() != THREAD_STATES::D_EXIT)
+    while (true)
     {
 
         switch (get_program_state())
@@ -223,6 +225,10 @@ int main() // MAIN IS OUR CONTROL THREAD
             al_destroy_user_event_source(&control_event_source);
             al_destroy_font(get_font());
             audio_deinit();
+
+            fprintf(stderr, "---EXIT--- \n");
+            exit(0);
+
             break;
 
         default:
@@ -231,6 +237,4 @@ int main() // MAIN IS OUR CONTROL THREAD
             break;
         }
     }
-
-    exit(0);
 }

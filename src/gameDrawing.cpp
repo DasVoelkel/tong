@@ -41,11 +41,11 @@ void stop()
 
     al_destroy_bitmap(buffer);
     buffer = NULL;
-    al_destroy_display(disp);
+    al_destroy_display(get_disp());
     disp = NULL;
 
-    al_destroy_timer(timer_draw_thread);
     al_destroy_event_queue(event_queue_draw_thread);
+    al_destroy_timer(timer_draw_thread);
 }
 
 ALLEGRO_DISPLAY *get_disp()
@@ -57,7 +57,8 @@ void disp_pre_draw()
 {
     //fprintf(stderr, "switchin to buffer \n");
     al_set_target_bitmap(buffer);
-    al_clear_to_color(al_map_rgb(0, 0, 0));
+
+    al_clear_to_color(get_background_color());
 }
 
 void disp_post_draw()
@@ -91,9 +92,7 @@ bool draw_thread_init(ALLEGRO_EVENT_SOURCE *control_event_source)
 
     buffer = al_create_bitmap(BUFFER_W, BUFFER_H);
     must_init(buffer, "bitmap buffer");
-    al_identity_transform(&transform);
-    al_scale_transform(&transform, scale_factor_x, scale_factor_y);
-    al_use_transform(&transform);
+
     // THREAD INIT
     event_queue_draw_thread = al_create_event_queue();
     must_init(event_queue_draw_thread, "draw-thread-queue");
@@ -165,6 +164,14 @@ void *draw_thread(ALLEGRO_THREAD *thr, void *arg)
         case ALLEGRO_EVENT_DISPLAY_CLOSE:
             // closing the window
             update_program_state(THREAD_STATES::D_EXIT);
+            break;
+        case ALLEGRO_EVENT_DISPLAY_RESIZE:
+
+            al_acknowledge_resize(event.display.source);
+
+            //Resize Agui
+            //gui->resizeToDisplay();
+
             break;
         default:
             fprintf(stderr, "unexpected event in draw thread!>%i<\n", event.type);
