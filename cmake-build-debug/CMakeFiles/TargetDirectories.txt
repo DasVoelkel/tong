@@ -1,8 +1,0 @@
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/CMakeFiles/tong.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/lib/CMakeFiles/rebuild_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/lib/CMakeFiles/edit_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/lib/Agui/CMakeFiles/rebuild_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/lib/Agui/CMakeFiles/edit_cache.dir
-/home/zweieuro/Documents/projects/tong/cmake-build-debug/lib/Agui/CMakeFiles/agui.dir
