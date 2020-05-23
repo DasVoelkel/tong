@@ -1,8 +1,6 @@
 #pragma once
 
 #include <Agui/Agui.hpp>
-//#include <Agui/Backends/Allegro5/Allegro5.hpp>
-
 #include <Agui/Widgets/Button/Button.hpp>
 #include <Agui/Widgets/CheckBox/CheckBox.hpp>
 #include <Agui/Widgets/DropDown/DropDown.hpp>
@@ -26,5 +24,5 @@
 #include <types.hpp>
 namespace rendering
 {
-void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene);
+  void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene);
 };
