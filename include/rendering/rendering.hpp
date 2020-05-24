@@ -21,7 +21,7 @@
 #include <ctime>
 #include <iostream>
 
-#include <types.hpp>
+#include <core/types.hpp>
 namespace rendering
 {
   void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene);

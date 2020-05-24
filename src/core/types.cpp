@@ -1,4 +1,4 @@
-#include "types.hpp"
+#include "core/types.hpp"
 
 ALLEGRO_FONT *internal_font = NULL;
 
