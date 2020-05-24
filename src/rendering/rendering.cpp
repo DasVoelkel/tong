@@ -1,13 +1,14 @@
-#include <rendering.hpp>
+#include <rendering/rendering.hpp>
 
-#include <WidgetCreator.hpp>
-#include <types.hpp>
+#include <rendering/gui/WidgetCreator.hpp>
+#include <core/types.hpp>
 namespace rendering
 {
+
   size_t display_width = 0;
   size_t display_height = 0;
 
-  agui::Gui *gui = NULL;
+  agui::Gui *menu_gui = NULL;
   agui::Allegro5Input *inputHandler = NULL;
   agui::Allegro5Graphics *graphicsHandler = NULL;
   agui::Font *defaultFont = NULL;
@@ -15,6 +16,12 @@ namespace rendering
   WidgetCreator *creator = NULL;
 
   void rendergui();
+
+  void addWidgets()
+  {
+    if (!creator)
+      creator = new WidgetCreator(menu_gui);
+  }
 
   void initializeAgui()
   {
@@ -34,43 +41,34 @@ namespace rendering
     //Allegro does not automatically premultiply alpha so let Agui do it
     agui::Color::setPremultiplyAlpha(true);
 
-    //Instance the gui
-    gui = new agui::Gui();
+    //Instance the menu_gui
+    menu_gui = new agui::Gui();
 
     //Set the input handler
-    gui->setInput(inputHandler);
+    menu_gui->setInput(inputHandler);
 
     //Set the graphics handler
-    gui->setGraphics(graphicsHandler);
+    menu_gui->setGraphics(graphicsHandler);
 
     fprintf(stderr, al_get_current_directory());
     fprintf(stderr, "\n");
-
-    if (al_filename_exists("assets/DejaVuSans.ttf"))
-      fprintf(stderr, "present \n");
-    else
-      fprintf(stderr, "not present \n");
-
-    auto font = al_load_font("assets/DejaVuSans.ttf", 16, agui::FONT_DEFAULT_FLAGS);
-    fprintf(stderr, "step \n");
-
-    font = al_load_ttf_font("assets/DejaVuSans.ttf", 16, 1);
-    fprintf(stderr, "step \n");
 
     defaultFont = agui::Font::load("assets/DejaVuSans.ttf", 16);
 
     //Setting a global font is required and failure to do so will crash.
     agui::Widget::setGlobalFont(defaultFont);
+    addWidgets();
   }
 
   void render(ALLEGRO_DISPLAY *disp, RENDER_SCENES scene)
   {
     {
-      if (!gui)
+      if (!menu_gui)
       {
         initializeAgui();
-        rendergui();
       }
+      menu_gui->logic();
+      rendergui();
     }
     {
       std::string title(get_game_title());
@@ -78,6 +76,7 @@ namespace rendering
       title += repr(scene);
       al_set_window_title(disp, title.c_str());
     }
+
     display_width = al_get_display_height(disp);
     display_height = al_get_display_width(disp);
 
@@ -99,21 +98,16 @@ namespace rendering
     }
   }
 
-  void addWidgets()
-  {
-    creator = new WidgetCreator(gui);
-  }
-
   void cleanUp() // TODO call this on exit
   {
-    if (gui)
+    if (menu_gui)
     {
 
-      gui->getTop()->clear();
+      menu_gui->getTop()->clear();
       delete creator;
       creator = NULL;
-      delete gui;
-      gui = NULL;
+      delete menu_gui;
+      menu_gui = NULL;
       delete inputHandler;
       delete graphicsHandler;
       inputHandler = NULL;
@@ -126,9 +120,9 @@ namespace rendering
 
   void rendergui()
   {
-    al_clear_to_color(al_map_rgb(240, 240, 240));
+    //al_clear_to_color(al_map_rgb(240, 240, 240));
 
     //render the widgets
-    gui->render();
+    menu_gui->render();
   }
 } // namespace rendering

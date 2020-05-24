@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.6)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_BUILD_TYPE Debug)
 
-project(mygame LANGUAGES CXX)
+project(the_framework LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXECUTABLE_OUTPUT_PATH ./${CMAKE_PROJECT_NAME})
@@ -18,7 +18,16 @@ add_subdirectory(lib)
 
 file(GLOB_RECURSE SRCS src/*)
 add_executable(${PROJECT_NAME} ${SRCS})
-target_include_directories(${PROJECT_NAME} PRIVATE include/)
+
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE
     agui_allegro5 PkgConfig::ALLEGRO
 )
+
+set(AGUI_SOURCES
+  src/main.cpp
+)
+
+
+
+
