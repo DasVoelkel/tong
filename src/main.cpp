@@ -11,60 +11,32 @@
 
 #include <core/types.hpp>
 #include <core/helper.hpp>
-#include <audio/audio.hpp>
 
 #include <core/threads/input_thread.hpp>
 #include <core/threads/render_thread.hpp>
+#include <core/threads/ControlThread.hpp>
+
+#define GAME_TITLE "Pong"
 
 // --- program control ---
-std::atomic<THREAD_STATES> program_state{THREAD_STATES::D_STARTING};
 ALLEGRO_EVENT_SOURCE control_event_source;
 
-void update_program_state(THREAD_STATES new_program_state)
-{
-  ALLEGRO_EVENT g_state_event;
-  g_state_event.type = G_STATE_CHANGE_EVENT_NUM;
-  program_state = new_program_state;
-  if (al_emit_user_event(&control_event_source, &g_state_event, NULL))
-  {
-    fprintf(stderr, "success sending event change! changing to %s\n ", repr(new_program_state));
-  }
-  else
-  {
-    fprintf(stderr, "fail sending event change! \n");
-    assert(false);
-  }
-}
-
-THREAD_STATES get_program_state()
-{
-  return program_state;
+const char *get_game_title() {
+  return GAME_TITLE;
 }
 
 int main() // MAIN IS OUR CONTROL THREAD
 {
-
-  // init essentials
-  must_init(al_init(), "allegro");
-  must_init(al_install_mouse(), "al_install_mouse");
-  must_init(al_install_keyboard(), "keyboard");
-
-  must_init(al_init_image_addon(), "al_init_image_addon");
-  must_init(al_init_primitives_addon(), "al_init_primitives_addon");
-  must_init(al_init_ttf_addon(), "al_init_ttf_addon");
-
+  
   fprintf(stderr, "---START---\n");
-
-  //audio_init(); // TODO change this so audio can also be reinited, may not be neccessary
-
-  al_init_user_event_source(&control_event_source);
-
-  ALLEGRO_EVENT_QUEUE *event_queue_control_thread = al_create_event_queue();
-  must_init(event_queue_control_thread, "event-queue-control-thread");
-  al_register_event_source(event_queue_control_thread, &control_event_source);
-
-  ALLEGRO_EVENT event;
-
+  
+  auto x = ControlThread();
+  x.print();
+  x.start(NULL);
+  x.wait_for_state(STOPPED);
+  ALLEGRO_EVENT
+      event;
+  /*
   while (true)
   {
     switch (get_program_state())
@@ -121,5 +93,5 @@ int main() // MAIN IS OUR CONTROL THREAD
 
       break;
     }
-  }
+}*/
 }

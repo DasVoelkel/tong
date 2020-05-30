@@ -16,7 +16,7 @@ pkg_check_modules(ALLEGRO REQUIRED IMPORTED_TARGET
 
 add_subdirectory(lib)
 
-file(GLOB_RECURSE SRCS src/*)
+file(GLOB_RECURSE SRCS src/*.cpp)
 add_executable(${PROJECT_NAME} ${SRCS})
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
@@ -24,9 +24,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     agui_allegro5 PkgConfig::ALLEGRO
 )
 
-set(AGUI_SOURCES
-  src/main.cpp
-)
+#set(AGUI_SOURCES
+#  src/main.cpp
+#)
 
 
 
