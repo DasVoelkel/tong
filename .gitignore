@@ -35,3 +35,4 @@ build
 gimp
 peda-session*
 cmake-build-debug/
+.idea

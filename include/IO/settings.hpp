@@ -7,6 +7,8 @@
 
 //#include <GameAsset.hpp>
 
+// credit ferdi mach das mit structs
+
 // settings required
 #define DEFAULT_SETTINGS \
   "{\"settings\":{\"fullscreen\":false,\"scale_fac\":3,\"anti_a\":5,\"audio_volume\":100}}"

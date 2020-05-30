@@ -15,6 +15,7 @@ ALLEGRO_FONT *get_font()
   }
 }
 
+#define BG_COLOR_NAME "black"
 ALLEGRO_COLOR *bg_color_p = NULL;
 ALLEGRO_COLOR get_background_color()
 {
@@ -25,29 +26,6 @@ ALLEGRO_COLOR get_background_color()
     bg_color_p = new ALLEGRO_COLOR;
     *bg_color_p = al_color_name(BG_COLOR_NAME);
     return *bg_color_p;
-  }
-}
-
-const char *repr(THREAD_STATES state)
-{
-  switch (state)
-  {
-  case THREAD_STATES::D_STARTING:
-    return " D_STARTING ";
-    break;
-  case THREAD_STATES::D_RUNNING:
-    return " D_RUNNING ";
-    break;
-  case THREAD_STATES::D_RESTART:
-    return " D_RESTART ";
-    break;
-  case THREAD_STATES::D_EXIT:
-    return " D_EXIT ";
-    break;
-
-  default:
-    return "unknown state";
-    break;
   }
 }
 
@@ -72,9 +50,4 @@ const char *repr(RENDER_SCENES target)
     return "unknown state";
     break;
   }
-}
-
-const char *get_game_title()
-{
-  return GAME_TITLE;
 }
