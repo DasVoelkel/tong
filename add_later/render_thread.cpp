@@ -1,4 +1,4 @@
-#include <core/threads/render_thread.hpp>
+#include "render_thread.hpp"
 
 namespace render_thread
 {

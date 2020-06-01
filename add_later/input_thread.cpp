@@ -1,4 +1,4 @@
-#include <core/threads/input_thread.hpp>
+#include "input_thread.hpp"
 namespace input_thread
 {
 

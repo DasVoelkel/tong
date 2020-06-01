@@ -1,21 +1,24 @@
 #pragma once
 
 #include <allegro5/allegro5.h>
+#include <allegro5/allegro_font.h>
 
 #include <string>
 #include <vector>
 #include <memory>
 #include <atomic>
 
+
 enum SYSTEMTHREAD_EVENTS {
-  THREAD_STATE_CHANGE_EVENT = ALLEGRO_GET_EVENT_TYPE('D', 'E', 'A', 'D')
+  THREAD_STATE_CHANGE_EVENT = ALLEGRO_GET_EVENT_TYPE('D', 'E', 'A', 'D'),
+      THREAD_CONTROL_EVENT
 };
 
 enum THREAD_STATES {
-  RUNNING,
-  STOPPING, // pending
-  STOPPED, // DONE
-  DELETED
+  T_RUNNING,
+  T_STOPPING, // pending
+  T_STOPPED, // DONE
+  T_DELETED
 };
 
 // worker threads search for the controller next up in their hirarchy
@@ -52,11 +55,15 @@ protected:
   
   void update_thread_state(THREAD_STATES new_state);
   
-  THREAD_STATES state_ = THREAD_STATES::STOPPED;
+  THREAD_STATES thread_state_ = THREAD_STATES::T_STOPPED;
   
-  static bool lib_inited;
+  static bool lib_inited_;
   // waiting
 
+  
+  
+  // just stuff that is needed all over the palce
+  static ALLEGRO_FONT* default_font_;
 public:
   //delete unneccessary
   SystemThread(const SystemThread &) = delete;
@@ -79,7 +86,6 @@ public:
   * */
   virtual bool stop();
   
-  void stop_self();
   
   // maybe implement "restart"?
   
@@ -93,11 +99,18 @@ public:
   
   bool wait_for_state(THREAD_STATES expected, bool blocking = true);
   
+  bool send_control_event(ALLEGRO_EVENT &event); // send it out
+  
+  virtual void control_event_handler(ALLEGRO_EVENT & event) = 0; // what happenes when received
+  
+  // need something like "send event to parent control via control"
+  
+  
   //getter
 public:
   
   THREAD_STATES &get_state_() {
-    return state_;
+    return thread_state_;
   }
   
   void *get_retval_() {
@@ -119,5 +132,8 @@ public:
   
   static void must_init(bool test, const char *description);
   
-  const void print();
+  static ALLEGRO_FONT* get_default_font();
+  
+  void print() const;
+  
 };
