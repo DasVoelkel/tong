@@ -31,17 +31,19 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
     lib_inited_ = true;
   }
   
+  thread_event_queue_ = al_create_event_queue();
+  
+  
   if (type_ == THREAD_TYPES::THREAD_CONTROLLER) {
     control_event_source_ = new ALLEGRO_EVENT_SOURCE;
     al_init_user_event_source(control_event_source_);
+    al_register_event_source(thread_event_queue_, control_event_source_);
+  
   }
   state_change_event_source_ = new ALLEGRO_EVENT_SOURCE;
   al_init_user_event_source(state_change_event_source_);
   
-  thread_event_queue_ = al_create_event_queue();
   must_init(thread_event_queue_, "SystemThread::thread_event_queue_");
-  
-  
   al_register_event_source(thread_event_queue_, state_change_event_source_);
   
   {
@@ -50,8 +52,10 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
     while (next) {
       if (next->get_type_() == THREAD_TYPES::THREAD_CONTROLLER) {
         assert(next->control_event_source_ && "Control Thread without Control source... ?");
+        fprintf(stderr,"%s subscribed to %s source: %p \n",name_.c_str(),next->name_.c_str(),next->control_event_source_);
         al_register_event_source(thread_event_queue_, next->control_event_source_);
       }
+      next= next->parent_;
     }
   }
   
@@ -82,11 +86,12 @@ SystemThread::~SystemThread() {
 
 
 bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
-  fprintf(stderr, "Waiting for state %s blocking: %d in thread %s  \n", repr(expected), blocking, name_.c_str());
+  fprintf(stderr, "Waiting for state %s blocking: %d in thread %s current: %s  \n", repr(expected), blocking, name_.c_str(),repr(get_state_()));
   
   if (!blocking) {
     return get_state_() == expected;
   }
+  
   ALLEGRO_EVENT_QUEUE *tmp_queue = al_create_event_queue();
   al_register_event_source(tmp_queue, state_change_event_source_);
   waiting_for_me_++;
@@ -145,8 +150,8 @@ void SystemThread::thread_event_filter_() {
     events_processed_++;
     
     if(event.type == THREAD_CONTROL_EVENT){
-      fprintf(stderr, "Thread %s handling control event \n ", name_.c_str());
-      control_event_handler(event);
+      fprintf(stderr, "CONTROL EVENT %s \n ", name_.c_str());
+      control_event_handler(event.user.data1);
       continue;
     }
     
@@ -155,8 +160,10 @@ void SystemThread::thread_event_filter_() {
         thread_retval_ = thread_(event, thread_args_);
         break;
       case T_STOPPING:
-        fprintf(stderr, "Stopping thread %s1 \n", name_.c_str());
+        fprintf(stderr, "Stopping thread %s \n", name_.c_str());
       case T_STOPPED:
+        fprintf(stderr, "stopped%s \n", name_.c_str());
+    
         update_thread_state(T_STOPPED);
         return;
         break;
@@ -164,6 +171,8 @@ void SystemThread::thread_event_filter_() {
         assert(false && "State should either be running or stopped or stopping");
         
         break;
+      default:
+        assert(false);
     }
     
     
@@ -171,6 +180,8 @@ void SystemThread::thread_event_filter_() {
 }
 
 bool SystemThread::start(void *args) {
+  fprintf(stderr,"starting %s \n",name_.c_str());
+  al_flush_event_queue(thread_event_queue_);
   switch (thread_state_) {
     
     case T_RUNNING:
@@ -185,7 +196,9 @@ bool SystemThread::start(void *args) {
       fprintf(stderr, "Start after stop \n ");
       
       if (running_thread_) {
+        al_join_thread(running_thread_,NULL);
         al_destroy_thread(running_thread_);
+  
         running_thread_ = NULL;
       }
       thread_args_ = args;
@@ -201,6 +214,8 @@ bool SystemThread::start(void *args) {
 }
 
 bool SystemThread::stop() {
+  fprintf(stderr,"stopping %s \n",name_.c_str());
+  
   switch (thread_state_) {
     case T_RUNNING:
       update_thread_state(THREAD_STATES::T_STOPPING);
@@ -222,29 +237,32 @@ bool SystemThread::stop() {
   
 }
 
-bool SystemThread::send_control_event(ALLEGRO_EVENT &event){
+bool SystemThread::send_control_event(const size_t control_event){
   
-  fprintf(stderr, "Thread %s trying to Send control event\n", name_.c_str());
+  fprintf(stderr, "Thread %s trying to Send control event type: %s \n", name_.c_str(),repr(type_));
   
   
   auto instance = this;
   while(instance->type_ != THREAD_TYPES::THREAD_CONTROLLER){
+    fprintf(stderr, "instance  %s type: %s parent: %p \n", instance->name_.c_str(),repr(instance->type_), instance->parent_);
+  
     if(instance->parent_)
       instance = instance->parent_;
     else{
       fprintf(stderr, "Thread %s found no controller in chain \n ", name_.c_str());
+      assert(false);
       return false;
     }
   }
   
 
-    ALLEGRO_EVENT tmp_event = event;
+    ALLEGRO_EVENT tmp_event;
     tmp_event.user.type = THREAD_CONTROL_EVENT;
-    if (al_emit_user_event(instance->state_change_event_source_, &tmp_event, NULL)) {
-      fprintf(stderr, "Thread %s sent control \n ", name_.c_str());
-    } else {
-      fprintf(stderr, "Thread %s sent control, no one cared\n ", name_.c_str());
-    }
+    tmp_event.user.data1 = control_event;
+
+    al_emit_user_event(instance->control_event_source_, &tmp_event, NULL);
+    fprintf(stderr, "---------------------Thread %s sent control event %d from source: %p \n ", name_.c_str(),control_event,instance->control_event_source_);
+
     
     return true;
 

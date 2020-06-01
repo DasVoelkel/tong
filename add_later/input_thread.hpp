@@ -9,8 +9,7 @@
 namespace input_thread
 {
 
-#define KEY_SEEN 1
-#define KEY_RELEASED 2
+
 
   void start(ALLEGRO_EVENT_SOURCE *event_source);
   void stop();
