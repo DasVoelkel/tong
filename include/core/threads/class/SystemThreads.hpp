@@ -99,9 +99,9 @@ public:
   
   bool wait_for_state(THREAD_STATES expected, bool blocking = true);
   
-  bool send_control_event(ALLEGRO_EVENT &event); // send it out
+  bool send_control_event(const size_t control_event); // send it out
   
-  virtual void control_event_handler(ALLEGRO_EVENT & event) = 0; // what happenes when received
+  virtual void control_event_handler(size_t event) = 0; // what happenes when received
   
   // need something like "send event to parent control via control"
   
