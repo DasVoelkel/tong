@@ -8,12 +8,13 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_ttf.h>
 
-bool SystemThread::lib_inited = false;
+bool SystemThread::lib_inited_ = false;
+ALLEGRO_FONT* SystemThread::default_font_ = NULL;
 
 SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *parent) : name_(name), type_(type), parent_(parent), waiting_for_me_(0) {
   fprintf(stderr, "Building Thread: %s, %s , %s \n", name_.c_str(), repr(type_), parent_ ? "parent" : "no parent");
   
-  if (!lib_inited) {
+  if (!lib_inited_) {
     fprintf(stderr, "inting lib first time\n");
     
     must_init(al_init(), "allegro");
@@ -24,8 +25,10 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
     must_init(al_init_primitives_addon(), "al_init_primitives_addon");
     must_init(al_init_font_addon(), "al_init_font_addon");
     must_init(al_init_ttf_addon(), "al_init_ttf_addon");
-    
-    lib_inited = true;
+  
+    default_font_ = al_create_builtin_font();
+    must_init(default_font_, "default font");
+    lib_inited_ = true;
   }
   
   if (type_ == THREAD_TYPES::THREAD_CONTROLLER) {
@@ -53,16 +56,16 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
   }
   
   
-  state_ = THREAD_STATES::STOPPED;
+  thread_state_ = THREAD_STATES::T_STOPPED;
   fprintf(stderr, "Built Thread: %s \n", name_.c_str());
 }
 
 SystemThread::~SystemThread() {
-  fprintf(stderr, "destroying thread %s state %s waiting %d \n", name_.c_str(), repr(state_), waiting_for_me_.load());
+  fprintf(stderr, "destroying thread %s state %s waiting %d \n", name_.c_str(), repr(thread_state_), waiting_for_me_.load());
   
-  assert(state_ == THREAD_STATES::STOPPED && "Thread not done, shouldn't stop");
+  assert(thread_state_ == THREAD_STATES::T_STOPPED && "Thread not done, shouldn't stop");
   while (waiting_for_me_.load() != 0) {
-    update_thread_state(THREAD_STATES::DELETED);
+    update_thread_state(THREAD_STATES::T_DELETED);
   }
   al_destroy_user_event_source(state_change_event_source_);
   
@@ -93,7 +96,7 @@ bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
     
     while (get_state_() != expected) {
       al_wait_for_event(tmp_queue, &buffer);
-      if (get_state_() == THREAD_STATES::DELETED) {
+      if (get_state_() == THREAD_STATES::T_DELETED) {
         waiting_for_me_--;
         al_unregister_event_source(tmp_queue, state_change_event_source_);
         fprintf(stderr, "Thread was deleted while some other thread was waiting? \n");
@@ -111,16 +114,16 @@ bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
 }
 
 void SystemThread::update_thread_state(THREAD_STATES new_state) {
-  fprintf(stderr, "Thread %s changing from %s to %s waiting: %d\n", name_.c_str(), repr(state_), repr(new_state), waiting_for_me_.load());
+  fprintf(stderr, "Thread %s changing from %s to %s waiting: %d\n", name_.c_str(), repr(thread_state_), repr(new_state), waiting_for_me_.load());
   
   ALLEGRO_EVENT tmp_event;
   tmp_event.user.type = THREAD_STATE_CHANGE_EVENT;
-  state_ = new_state;
+  thread_state_ = new_state;
   
   if (al_emit_user_event(state_change_event_source_, &tmp_event, NULL)) {
-    fprintf(stderr, "Thread %s changed state to %s\n ", name_.c_str(), repr(state_));
+    fprintf(stderr, "Thread %s changed state to %s\n ", name_.c_str(), repr(thread_state_));
   } else {
-    fprintf(stderr, "Thread %s changed state, no one cared\n ", name_.c_str(), repr(state_));
+    fprintf(stderr, "Thread %s changed state, no one cared\n ", name_.c_str(), repr(thread_state_));
   }
 }
 
@@ -141,17 +144,23 @@ void SystemThread::thread_event_filter_() {
     al_wait_for_event(thread_event_queue_, &event);
     events_processed_++;
     
+    if(event.type == THREAD_CONTROL_EVENT){
+      fprintf(stderr, "Thread %s handling control event \n ", name_.c_str());
+      control_event_handler(event);
+      continue;
+    }
+    
     switch (get_state_()) {
-      case RUNNING:
+      case T_RUNNING:
         thread_retval_ = thread_(event, thread_args_);
         break;
-      case STOPPING:
+      case T_STOPPING:
         fprintf(stderr, "Stopping thread %s1 \n", name_.c_str());
-      case STOPPED:
-        update_thread_state(STOPPED);
+      case T_STOPPED:
+        update_thread_state(T_STOPPED);
         return;
         break;
-      case DELETED:
+      case T_DELETED:
         assert(false && "State should either be running or stopped or stopping");
         
         break;
@@ -162,17 +171,17 @@ void SystemThread::thread_event_filter_() {
 }
 
 bool SystemThread::start(void *args) {
-  switch (state_) {
+  switch (thread_state_) {
     
-    case RUNNING:
+    case T_RUNNING:
       fprintf(stderr, "Already running \n ");
       return true;
       break;
-    case STOPPING:
+    case T_STOPPING:
       fprintf(stderr, "currently in the process of stopping, waiting until done, then restarting \n ");
-      wait_for_state(STOPPED);
+      wait_for_state(T_STOPPED);
       // purposefully do not break! Just run into the handler for stopped
-    case STOPPED:
+    case T_STOPPED:
       fprintf(stderr, "Start after stop \n ");
       
       if (running_thread_) {
@@ -183,29 +192,29 @@ bool SystemThread::start(void *args) {
       running_thread_ = al_create_thread(thread_wrapper, this);
       al_start_thread(running_thread_);
       
-      update_thread_state(RUNNING);
+      update_thread_state(T_RUNNING);
       break;
-    case DELETED:
+    case T_DELETED:
       break;
   }
   return false;
 }
 
 bool SystemThread::stop() {
-  switch (state_) {
-    case RUNNING:
-      update_thread_state(THREAD_STATES::STOPPING);
+  switch (thread_state_) {
+    case T_RUNNING:
+      update_thread_state(THREAD_STATES::T_STOPPING);
       return true;
       break;
-    case STOPPING:
+    case T_STOPPING:
       fprintf(stderr, "Currently stopping \n ");
-      wait_for_state(THREAD_STATES::STOPPED);
+      wait_for_state(THREAD_STATES::T_STOPPED);
       break;
-    case STOPPED:
+    case T_STOPPED:
       fprintf(stderr, "Stopped \n ");
       return true;
       break;
-    case DELETED:
+    case T_DELETED:
       break;
   }
   
@@ -213,9 +222,39 @@ bool SystemThread::stop() {
   
 }
 
-void SystemThread::stop_self() {
-  update_thread_state(THREAD_STATES::STOPPING);
+bool SystemThread::send_control_event(ALLEGRO_EVENT &event){
+  
+  fprintf(stderr, "Thread %s trying to Send control event\n", name_.c_str());
+  
+  
+  auto instance = this;
+  while(instance->type_ != THREAD_TYPES::THREAD_CONTROLLER){
+    if(instance->parent_)
+      instance = instance->parent_;
+    else{
+      fprintf(stderr, "Thread %s found no controller in chain \n ", name_.c_str());
+      return false;
+    }
+  }
+  
+
+    ALLEGRO_EVENT tmp_event = event;
+    tmp_event.user.type = THREAD_CONTROL_EVENT;
+    if (al_emit_user_event(instance->state_change_event_source_, &tmp_event, NULL)) {
+      fprintf(stderr, "Thread %s sent control \n ", name_.c_str());
+    } else {
+      fprintf(stderr, "Thread %s sent control, no one cared\n ", name_.c_str());
+    }
+    
+    return true;
+
+  
+  
+
+  return false;
 }
+
+
 
 // util
 const
@@ -223,18 +262,18 @@ const
 char *SystemThread::repr(THREAD_STATES state) {
   
   switch (state) {
-    case THREAD_STATES::RUNNING:
-      return "--RUNNING--";
+    case THREAD_STATES::T_RUNNING:
+      return "--T_RUNNING--";
       break;
-    case THREAD_STATES::STOPPING:
-      return "--STOPPING--";
+    case THREAD_STATES::T_STOPPING:
+      return "--T_STOPPING--";
       break;
-    case THREAD_STATES::STOPPED:
+    case THREAD_STATES::T_STOPPED:
       return "--STOPPED--";
       break;
     
-    case DELETED:
-      return "--DELETED!--";
+    case T_DELETED:
+      return "--T_DELETED!--";
       break;
     default:
       return "--UNKNOWN--";
@@ -267,6 +306,71 @@ void SystemThread::must_init(bool test, const char *description) {
   exit(1);
 }
 
-const void SystemThread::print() {
-  fprintf(stderr, "Thread \"%s\" Type %s State %s processed %d \n", name_.c_str(), repr(state_), repr(type_), (int) events_processed_);
+void SystemThread::print()const {
+  fprintf(stderr, "Thread \"%s\" Type %s State %s processed %d \n", name_.c_str(),  repr(type_), repr(thread_state_),(int) events_processed_);
 }
+
+//ALLEGRO_FONT * SystemThread::default_font = NULL;
+ALLEGRO_FONT *SystemThread::get_default_font() {
+  assert(default_font_);
+  return default_font_;
+}
+
+
+/*TEMPLATE DERIVATIVE _NAME_
+
+ .hpp
+ 
+ #include <core/threads/class/SystemThreads.hpp>
+
+ class _NAME_ : public SystemThread {
+
+private:
+// stuff only this class should know
+public:
+  // stuff everyone can access
+public:
+  _NAME_();
+  
+  ~_NAME_();
+  
+  // only absolutely neccessary override
+  virtual void *thread_(ALLEGRO_EVENT &event, void *args) override;
+  virtual void control_event_handler(ALLEGRO_EVENT & event) override;
+
+
+};
+ 
+ 
+ 
+ .cpp
+ #include "core/threads/_NAME_.hpp"
+
+_NAME_::_NAME_() : SystemThread(std::string("_NAME_"), type)
+
+{
+  // create your own event sources etc here
+  
+  
+  // start up here
+  
+
+  
+}
+
+ // destroy everything you have created bevore to prevent mem leaks
+_NAME_::~_NAME_() {
+
+}
+
+
+
+void *_NAME_::thread_(ALLEGRO_EVENT &event, void *args) {
+
+return NULL;
+}
+  void InputThread::control_event_handler(ALLEGRO_EVENT &event) {
+  
+}
+* */
+
