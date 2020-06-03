@@ -13,11 +13,12 @@ CompositorThread::CompositorThread() : SystemThread(std::string("Compositor"), T
   child_threads_.emplace_back(std::make_unique<RenderThread>(this));
   
   for (auto &child : child_threads_) {
-    child->create_internal_bitmap();
+    child->enable_fps_rendering(false);
+    
   }
   
   for (auto &child : child_threads_) {
-    //child->start(NULL);
+    child->start(NULL);
   }
   
 }
@@ -84,14 +85,7 @@ void *CompositorThread::thread_(ALLEGRO_EVENT &event, void *args) {
 
       
       break;
-    case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
-      fprintf(stderr, "switched into display\n");
-      //gui->resizeToDisplay();
-      
-      break;
-    case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
-      fprintf(stderr, "switched out of display\n");
-      break;
+    
   
     default:
       //fprintf(stderr, "unexpected event in %s ! >%i<\n",name_.c_str(), event.type);
@@ -104,7 +98,7 @@ void *CompositorThread::thread_(ALLEGRO_EVENT &event, void *args) {
 
 void CompositorThread::draw() {
   
-  al_clear_to_color(al_color_name("white"));
+  LOG(TAG_," %p \n",internal_bitmap_);
   al_draw_textf(get_default_font(), al_color_name("black"), 1, 1, ALLEGRO_ALIGN_LEFT, "Drawn threads: %d ",times_drawn_);
   
 }

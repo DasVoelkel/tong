@@ -58,14 +58,9 @@ void RenderThread::control_event_handler(size_t event) {
 }
 
 void RenderThread::draw() {
-  assert(al_get_target_bitmap());
-  al_clear_to_color(al_color_name("white"));
-  al_draw_textf(get_default_font(), al_color_name("black"), 1, 1, ALLEGRO_ALIGN_LEFT, "Drawn threads: %d ",times_drawn_);
-  
-  //render the widgets
+  LOG(TAG_," %p %p %p\n",internal_bitmap_,get_default_font());
+auto color = al_color_name("black");
 
-  
-  
-
+  al_draw_textf(get_default_font(), color , 1, 1, ALLEGRO_ALIGN_LEFT, "Drawn threads: %d ",1);
   
 }

@@ -196,8 +196,11 @@ void SystemThread::thread_event_filter_() {
       redraw_needed_ = false;
       if (draw_to_display_) {
         al_set_target_backbuffer(display_);
+        al_set_target_bitmap(al_get_backbuffer((display_)));
         al_clear_to_color(al_color_name(CLEAR_TO_COLOR));
         draw_internal_bitmap();
+        LOG(TAG_,"Display bitmap %p \n",internal_bitmap_);
+  
         al_flip_display();
         al_set_target_bitmap(NULL);
       }
@@ -225,14 +228,16 @@ void SystemThread::thread_event_filter_() {
         continue;
         break;
       case ALLEGRO_EVENT_TIMER:     // only on fps required
+      if(event.timer.count == 5)
+        exit(0);
         if (event.timer.source == fps_timer_) {
           if (is_fps_rendering_)
             redraw_needed_ = true;
           continue;
         }
         break;
-      case ALLEGRO_EVENT_DISPLAY_RESIZE: {
-        LOG(TAG_,"ALLEGRO_EVENT_DISPLAY_RESIZE\n");
+      case ALLEGRO_EVENT_DISPLAY_RESIZE:
+        {
   
         if(al_get_display_width(display_) != event.display.width or al_get_display_height(display_) != event.display.height ){
           al_resize_display(display_,event.display.width,event.display.height);
@@ -241,6 +246,14 @@ void SystemThread::thread_event_filter_() {
         if (internal_bitmap_)
           adjust_bitmap_size();
       }
+      case ALLEGRO_EVENT_DISPLAY_SWITCH_IN:
+        LOG(TAG_, "switched into display\n");
+    
+        break;
+      case ALLEGRO_EVENT_DISPLAY_SWITCH_OUT:
+        LOG(TAG_, "switched out of display\n");
+        break;
+        
         break;
     }
     thread_retval_ = thread_(event, thread_args_);
@@ -408,6 +421,8 @@ void SystemThread::create_internal_bitmap() {
   
   if (unlock)
     al_unlock_mutex(internal_bitmap_lock_);
+  
+  LOG(TAG_,"Created Bitmap %p \n",internal_bitmap_);
 }
 
 
@@ -415,8 +430,8 @@ void SystemThread::adjust_bitmap_size() {
   
   
   al_lock_mutex(internal_bitmap_lock_);
-  al_destroy_bitmap(internal_bitmap_);
   LOG(TAG_,"Adjusted H:%d W:%d -> H:%d W:%d \n",al_get_bitmap_height(internal_bitmap_),al_get_bitmap_width(internal_bitmap_),al_get_display_height(display_), al_get_display_width(display_));
+  al_destroy_bitmap(internal_bitmap_);
   internal_bitmap_ = al_create_bitmap(al_get_display_width(display_), al_get_display_height(display_));
   
   al_unlock_mutex(internal_bitmap_lock_);
@@ -424,11 +439,13 @@ void SystemThread::adjust_bitmap_size() {
   
 }
 
-void *SystemThread::thread_draw_wrapper() {
+void SystemThread::thread_draw_wrapper() {
   assert(internal_bitmap_ && "redraw triggered but the Thread has no internal bitmaps!");
   
   al_lock_mutex(internal_bitmap_lock_);
   al_set_target_bitmap(internal_bitmap_);
+  
+  LOG(TAG_,"Draw Thread bitmap %p \n",internal_bitmap_);
   
   al_clear_to_color(al_color_name(CLEAR_TO_COLOR));
   times_drawn_++;
@@ -436,7 +453,6 @@ void *SystemThread::thread_draw_wrapper() {
   
   al_set_target_bitmap(NULL);
   al_unlock_mutex(internal_bitmap_lock_);
-  return nullptr;
 }
 
 void SystemThread::draw_internal_bitmap() {
@@ -450,7 +466,8 @@ void SystemThread::draw_internal_bitmap() {
 void SystemThread::enable_fps_rendering(bool to_display) {
   if (!internal_bitmap_)
     create_internal_bitmap();
-  al_register_event_source(thread_event_queue_, al_get_timer_event_source(fps_timer_));
+  if(!(al_is_event_source_registered(thread_event_queue_, al_get_timer_event_source(fps_timer_))))
+    al_register_event_source(thread_event_queue_, al_get_timer_event_source(fps_timer_));
   is_fps_rendering_ = true;
   draw_to_display_ = to_display;
 }

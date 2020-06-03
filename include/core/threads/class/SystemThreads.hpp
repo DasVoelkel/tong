@@ -117,7 +117,7 @@ public:
   virtual void draw()=0;
 private:
   static void *thread_wrapper(ALLEGRO_THREAD *thr, void *arg); // make a wrapper so that the actual code only gets the event itself without handling the rest
-  void* thread_draw_wrapper();
+  void thread_draw_wrapper();
 public:
   
   bool wait_for_state(THREAD_STATES expected, bool blocking = true);
