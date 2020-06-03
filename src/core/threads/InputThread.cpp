@@ -1,4 +1,4 @@
-#include <core/threads/ControlThread.hpp>
+#include <core/threads/CompositorThread.hpp>
 #include "core/threads/InputThread.hpp"
 
 InputThread::InputThread(SystemThread * parent ) : SystemThread(std::string("InputThread"), THREAD_TYPES::THREAD_WORKER,parent)

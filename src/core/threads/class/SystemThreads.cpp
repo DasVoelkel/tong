@@ -7,38 +7,65 @@
 #include <allegro5/allegro_acodec.h>
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_ttf.h>
+#include <algorithm>
+#include <allegro5/allegro_color.h>
 
-bool SystemThread::lib_inited_ = false;
-ALLEGRO_FONT* SystemThread::default_font_ = NULL;
+const int  DISP_W =  640;
+const int  DISP_H =  480;
+const float FPS = 1.0;
+const char* CLEAR_TO_COLOR = "white";
+
+ALLEGRO_FONT *SystemThread::default_font_ = NULL;
+ALLEGRO_DISPLAY *SystemThread::display_ = NULL;
+ALLEGRO_TIMER *SystemThread::fps_timer_ = NULL;
+size_t SystemThread::obj_counter_ = 0;
+ALLEGRO_MUTEX *SystemThread::object_counter_lock_ = al_create_mutex();
+std::vector<ALLEGRO_BITMAP *> SystemThread::bitmaps_ = {};
+
 
 SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *parent) : name_(name), type_(type), parent_(parent), waiting_for_me_(0) {
-  fprintf(stderr, "Building Thread: %s, %s , %s \n", name_.c_str(), repr(type_), parent_ ? "parent" : "no parent");
+  TAG_ = name_.c_str();
   
-  if (!lib_inited_) {
-    fprintf(stderr, "inting lib first time\n");
-    
+  LOG(TAG_, "Creating: %s , %s \n", repr(type_), parent_ ? "parent" : "no parent");
+  al_lock_mutex(object_counter_lock_);
+  if (obj_counter_ == 0) {
     must_init(al_init(), "allegro");
     must_init(al_install_mouse(), "al_install_mouse");
-    must_init(al_install_keyboard(), "keyboard");
-    
+    must_init(al_install_keyboard(), "al_install_keyboard");
     must_init(al_init_image_addon(), "al_init_image_addon");
     must_init(al_init_primitives_addon(), "al_init_primitives_addon");
     must_init(al_init_font_addon(), "al_init_font_addon");
     must_init(al_init_ttf_addon(), "al_init_ttf_addon");
-  
+    
     default_font_ = al_create_builtin_font();
     must_init(default_font_, "default font");
-    lib_inited_ = true;
+    
+    al_set_new_display_flags(ALLEGRO_RESIZABLE);
+    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
+    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
+    
+    
+    display_ = al_create_display(DISP_W, DISP_H);
+    must_init(display_, "display");
+    
+    fps_timer_ = al_create_timer(1.0 / FPS);
+    must_init(fps_timer_, "draw-thread-timer");
+    
+    al_start_timer(fps_timer_);
   }
   
+  
   thread_event_queue_ = al_create_event_queue();
+  
+  al_register_event_source(thread_event_queue_, al_get_display_event_source(display_));
+  al_register_event_source(thread_event_queue_, al_get_timer_event_source(fps_timer_));
   
   
   if (type_ == THREAD_TYPES::THREAD_CONTROLLER) {
     control_event_source_ = new ALLEGRO_EVENT_SOURCE;
     al_init_user_event_source(control_event_source_);
     al_register_event_source(thread_event_queue_, control_event_source_);
-  
+    
   }
   state_change_event_source_ = new ALLEGRO_EVENT_SOURCE;
   al_init_user_event_source(state_change_event_source_);
@@ -52,42 +79,64 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
     while (next) {
       if (next->get_type_() == THREAD_TYPES::THREAD_CONTROLLER) {
         assert(next->control_event_source_ && "Control Thread without Control source... ?");
-        fprintf(stderr,"%s subscribed to %s source: %p \n",name_.c_str(),next->name_.c_str(),next->control_event_source_);
+        LOG(TAG_, "subscribed to, %s @ %p \n", next->name_.c_str(), next->control_event_source_);
+        
         al_register_event_source(thread_event_queue_, next->control_event_source_);
       }
-      next= next->parent_;
+      next = next->parent_;
     }
   }
   
   
   thread_state_ = THREAD_STATES::T_STOPPED;
-  fprintf(stderr, "Built Thread: %s \n", name_.c_str());
+  obj_counter_++;
+  al_unlock_mutex(object_counter_lock_);
+  
 }
 
 SystemThread::~SystemThread() {
-  fprintf(stderr, "destroying thread %s state %s waiting %d \n", name_.c_str(), repr(thread_state_), waiting_for_me_.load());
+  
   
   assert(thread_state_ == THREAD_STATES::T_STOPPED && "Thread not done, shouldn't stop");
   while (waiting_for_me_.load() != 0) {
     update_thread_state(THREAD_STATES::T_DELETED);
   }
   al_destroy_user_event_source(state_change_event_source_);
-  
   delete state_change_event_source_;
+  
+  
   if (control_event_source_) {
     al_destroy_user_event_source(control_event_source_);
     delete control_event_source_;
   }
   
   al_destroy_event_queue(thread_event_queue_);
+  if (internal_bitmap_) {
+    al_destroy_bitmap(internal_bitmap_);
+    internal_bitmap_ = NULL;
+  }
   
-  fprintf(stderr, "destroyed %s \n", name_.c_str());
+  if (internal_bitmap_lock_) {
+    al_destroy_mutex(internal_bitmap_lock_);
+    internal_bitmap_lock_ = NULL;
+  }
+  
+  al_lock_mutex(object_counter_lock_);
+  obj_counter_--;
+  if (obj_counter_ == 0) {
+    if (display_)
+      al_destroy_display(display_);
+    
+    if (fps_timer_)
+      al_destroy_timer(fps_timer_);
+  }
+  
+  
 }
 
 
 bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
-  fprintf(stderr, "Waiting for state %s blocking: %d in thread %s current: %s  \n", repr(expected), blocking, name_.c_str(),repr(get_state_()));
-  
+  LOG(TAG_, "Wait %s -> %s\n", repr(get_state_()), repr(expected));
   if (!blocking) {
     return get_state_() == expected;
   }
@@ -104,7 +153,7 @@ bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
       if (get_state_() == THREAD_STATES::T_DELETED) {
         waiting_for_me_--;
         al_unregister_event_source(tmp_queue, state_change_event_source_);
-        fprintf(stderr, "Thread was deleted while some other thread was waiting? \n");
+        LOG(TAG_, "Was deleted while someone was waiting\n");
         al_destroy_event_queue(tmp_queue);
         return false;
         
@@ -119,17 +168,13 @@ bool SystemThread::wait_for_state(THREAD_STATES expected, bool blocking) {
 }
 
 void SystemThread::update_thread_state(THREAD_STATES new_state) {
-  fprintf(stderr, "Thread %s changing from %s to %s waiting: %d\n", name_.c_str(), repr(thread_state_), repr(new_state), waiting_for_me_.load());
-  
+  LOG(TAG_, "State: %s -> %s\n", repr(get_state_()), repr(new_state));
   ALLEGRO_EVENT tmp_event;
   tmp_event.user.type = THREAD_STATE_CHANGE_EVENT;
   thread_state_ = new_state;
   
-  if (al_emit_user_event(state_change_event_source_, &tmp_event, NULL)) {
-    fprintf(stderr, "Thread %s changed state to %s\n ", name_.c_str(), repr(thread_state_));
-  } else {
-    fprintf(stderr, "Thread %s changed state, no one cared\n ", name_.c_str(), repr(thread_state_));
-  }
+  al_emit_user_event(state_change_event_source_, &tmp_event, NULL);
+  
 }
 
 // core
@@ -137,7 +182,6 @@ void SystemThread::update_thread_state(THREAD_STATES new_state) {
 
 // make a wrapper so that the actual code only gets the event itself without handling the rest
 void *SystemThread::thread_wrapper(ALLEGRO_THREAD *thr, void *sysT) {
-  //fprintf(stderr, "thread wrapper accessed \n");
   auto instance = (SystemThread *) sysT;
   instance->thread_event_filter_();
   return NULL;
@@ -145,63 +189,85 @@ void *SystemThread::thread_wrapper(ALLEGRO_THREAD *thr, void *sysT) {
 
 void SystemThread::thread_event_filter_() {
   while (true) {
+    assert(get_state_() != T_DELETED);
+    
+    if (redraw_needed_ && al_event_queue_is_empty(thread_event_queue_)) {
+      thread_draw_wrapper();
+      redraw_needed_ = false;
+      if (draw_to_display_) {
+        al_set_target_backbuffer(display_);
+        al_clear_to_color(al_color_name(CLEAR_TO_COLOR));
+        draw_internal_bitmap();
+        al_flip_display();
+        al_set_target_bitmap(NULL);
+      }
+    }
+    
     ALLEGRO_EVENT event;
     al_wait_for_event(thread_event_queue_, &event);
     events_processed_++;
     
-    if(event.type == THREAD_CONTROL_EVENT){
-      fprintf(stderr, "CONTROL EVENT %s \n ", name_.c_str());
+    if (event.type == THREAD_CONTROL_EVENT) {
       control_event_handler(event.user.data1);
-      continue;
     }
     
-    switch (get_state_()) {
-      case T_RUNNING:
-        thread_retval_ = thread_(event, thread_args_);
-        break;
-      case T_STOPPING:
-        fprintf(stderr, "Stopping thread %s \n", name_.c_str());
-      case T_STOPPED:
-        fprintf(stderr, "stopped%s \n", name_.c_str());
-    
-        update_thread_state(T_STOPPED);
-        return;
-        break;
-      case T_DELETED:
-        assert(false && "State should either be running or stopped or stopping");
-        
-        break;
-      default:
-        assert(false);
+    if(get_state_() == T_STOPPED or get_state_() == T_STOPPING){
+      update_thread_state(T_STOPPED);
+      return;
     }
     
-    
+    // we are "running"
+    switch (event.type) { // filter special things out
+      case (THREAD_CONTROL_EVENT): // already processed
+        continue;
+        break;
+      case (THREAD_STATE_CHANGE_EVENT): // not relevant for normal procedure
+        continue;
+        break;
+      case ALLEGRO_EVENT_TIMER:     // only on fps required
+        if (event.timer.source == fps_timer_) {
+          if (is_fps_rendering_)
+            redraw_needed_ = true;
+          continue;
+        }
+        break;
+      case ALLEGRO_EVENT_DISPLAY_RESIZE: {
+        LOG(TAG_,"ALLEGRO_EVENT_DISPLAY_RESIZE\n");
+  
+        if(al_get_display_width(display_) != event.display.width or al_get_display_height(display_) != event.display.height ){
+          al_resize_display(display_,event.display.width,event.display.height);
+        }
+        al_acknowledge_resize(display_);
+        if (internal_bitmap_)
+          adjust_bitmap_size();
+      }
+        break;
+    }
+    thread_retval_ = thread_(event, thread_args_);
+  
+  
   }
 }
 
 bool SystemThread::start(void *args) {
-  fprintf(stderr,"starting %s \n",name_.c_str());
   al_flush_event_queue(thread_event_queue_);
   switch (thread_state_) {
     
     case T_RUNNING:
-      fprintf(stderr, "Already running \n ");
       return true;
       break;
     case T_STOPPING:
-      fprintf(stderr, "currently in the process of stopping, waiting until done, then restarting \n ");
       wait_for_state(T_STOPPED);
       // purposefully do not break! Just run into the handler for stopped
     case T_STOPPED:
-      fprintf(stderr, "Start after stop \n ");
-      
       if (running_thread_) {
-        al_join_thread(running_thread_,NULL);
+        al_join_thread(running_thread_, NULL);
         al_destroy_thread(running_thread_);
-  
+        
         running_thread_ = NULL;
       }
-      thread_args_ = args;
+      if (args)
+        thread_args_ = args;
       running_thread_ = al_create_thread(thread_wrapper, this);
       al_start_thread(running_thread_);
       
@@ -214,7 +280,7 @@ bool SystemThread::start(void *args) {
 }
 
 bool SystemThread::stop() {
-  fprintf(stderr,"stopping %s \n",name_.c_str());
+  
   
   switch (thread_state_) {
     case T_RUNNING:
@@ -222,11 +288,9 @@ bool SystemThread::stop() {
       return true;
       break;
     case T_STOPPING:
-      fprintf(stderr, "Currently stopping \n ");
       wait_for_state(THREAD_STATES::T_STOPPED);
       break;
     case T_STOPPED:
-      fprintf(stderr, "Stopped \n ");
       return true;
       break;
     case T_DELETED:
@@ -237,41 +301,29 @@ bool SystemThread::stop() {
   
 }
 
-bool SystemThread::send_control_event(const size_t control_event){
-  
-  fprintf(stderr, "Thread %s trying to Send control event type: %s \n", name_.c_str(),repr(type_));
+bool SystemThread::send_control_event(const size_t control_event) {
   
   
   auto instance = this;
-  while(instance->type_ != THREAD_TYPES::THREAD_CONTROLLER){
-    fprintf(stderr, "instance  %s type: %s parent: %p \n", instance->name_.c_str(),repr(instance->type_), instance->parent_);
-  
-    if(instance->parent_)
+  while (instance->type_ != THREAD_TYPES::THREAD_CONTROLLER) {
+    if (instance->parent_)
       instance = instance->parent_;
-    else{
-      fprintf(stderr, "Thread %s found no controller in chain \n ", name_.c_str());
+    else {
       assert(false);
       return false;
     }
   }
   
-
-    ALLEGRO_EVENT tmp_event;
-    tmp_event.user.type = THREAD_CONTROL_EVENT;
-    tmp_event.user.data1 = control_event;
-
-    al_emit_user_event(instance->control_event_source_, &tmp_event, NULL);
-    fprintf(stderr, "---------------------Thread %s sent control event %d from source: %p \n ", name_.c_str(),control_event,instance->control_event_source_);
-
-    
-    return true;
-
   
+  ALLEGRO_EVENT tmp_event;
+  tmp_event.user.type = THREAD_CONTROL_EVENT;
+  tmp_event.user.data1 = control_event;
   
-
-  return false;
+  al_emit_user_event(instance->control_event_source_, &tmp_event, NULL);
+  //LOG(TAG_,"Sent Control event type: %d @ %p \n",tmp_event.user.data1,instance->control_event_source_);
+  
+  return true;
 }
-
 
 
 // util
@@ -281,20 +333,19 @@ char *SystemThread::repr(THREAD_STATES state) {
   
   switch (state) {
     case THREAD_STATES::T_RUNNING:
-      return "--T_RUNNING--";
+      return "T_RUNNING";
       break;
     case THREAD_STATES::T_STOPPING:
-      return "--T_STOPPING--";
+      return "T_STOPPING";
       break;
     case THREAD_STATES::T_STOPPED:
-      return "--STOPPED--";
+      return "T_STOPPED";
       break;
-    
     case T_DELETED:
-      return "--T_DELETED!--";
+      return "T_DELETED!";
       break;
     default:
-      return "--UNKNOWN--";
+      return "T_UNKNOWN";
       break;
     
   }
@@ -304,13 +355,13 @@ const char *SystemThread::repr(THREAD_TYPES type) {
   switch (type) {
     
     case THREAD_TYPES::THREAD_NOTYPE:
-      return "-NOTYPE-";
+      return "NOTYPE";
       break;
     case THREAD_TYPES::THREAD_WORKER:
-      return "-WORKER-";
+      return "WORKER";
       break;
     case THREAD_TYPES::THREAD_CONTROLLER:
-      return "-CONTROLLER-";
+      return "CONTROLLER";
       break;
   }
   return "?";
@@ -319,13 +370,12 @@ const char *SystemThread::repr(THREAD_TYPES type) {
 void SystemThread::must_init(bool test, const char *description) {
   if (test)
     return;
-  
-  fprintf(stderr, "couldn't initialize %s\n", description);
-  exit(1);
+  LOG("SystemThread", "Couldn't init %s \n", description);
+  exit(99999);
 }
 
-void SystemThread::print()const {
-  fprintf(stderr, "Thread \"%s\" Type %s State %s processed %d \n", name_.c_str(),  repr(type_), repr(thread_state_),(int) events_processed_);
+void SystemThread::print() const {
+  LOG(TAG_, "Type: %s, State: %s\n", repr(type_), repr(thread_state_));
 }
 
 //ALLEGRO_FONT * SystemThread::default_font = NULL;
@@ -334,6 +384,76 @@ ALLEGRO_FONT *SystemThread::get_default_font() {
   return default_font_;
 }
 
+void SystemThread::create_internal_bitmap() {
+  
+  bool unlock = false;
+  
+  if (internal_bitmap_lock_) {
+    al_lock_mutex(internal_bitmap_lock_);
+    unlock = true;
+  } else {
+    internal_bitmap_lock_ = al_create_mutex();
+  }
+  
+  if (internal_bitmap_) {
+    al_destroy_bitmap(internal_bitmap_);
+    
+    auto found = std::find(bitmaps_.begin(), bitmaps_.end(), internal_bitmap_);
+    assert(found != bitmaps_.end());
+    bitmaps_.erase(found);
+  }
+  
+  internal_bitmap_ = al_create_bitmap(al_get_display_width(display_), al_get_display_height(display_));
+  bitmaps_.push_back(internal_bitmap_);
+  
+  if (unlock)
+    al_unlock_mutex(internal_bitmap_lock_);
+}
+
+
+void SystemThread::adjust_bitmap_size() {
+  
+  
+  al_lock_mutex(internal_bitmap_lock_);
+  al_destroy_bitmap(internal_bitmap_);
+  LOG(TAG_,"Adjusted H:%d W:%d -> H:%d W:%d \n",al_get_bitmap_height(internal_bitmap_),al_get_bitmap_width(internal_bitmap_),al_get_display_height(display_), al_get_display_width(display_));
+  internal_bitmap_ = al_create_bitmap(al_get_display_width(display_), al_get_display_height(display_));
+  
+  al_unlock_mutex(internal_bitmap_lock_);
+  
+  
+}
+
+void *SystemThread::thread_draw_wrapper() {
+  assert(internal_bitmap_ && "redraw triggered but the Thread has no internal bitmaps!");
+  
+  al_lock_mutex(internal_bitmap_lock_);
+  al_set_target_bitmap(internal_bitmap_);
+  
+  al_clear_to_color(al_color_name(CLEAR_TO_COLOR));
+  times_drawn_++;
+  draw();
+  
+  al_set_target_bitmap(NULL);
+  al_unlock_mutex(internal_bitmap_lock_);
+  return nullptr;
+}
+
+void SystemThread::draw_internal_bitmap() {
+  
+  al_lock_mutex(internal_bitmap_lock_);
+  assert(al_get_target_bitmap() && "Shouldn't be null");
+  al_draw_bitmap(internal_bitmap_, 0, 0, 0);
+  al_unlock_mutex(internal_bitmap_lock_);
+}
+
+void SystemThread::enable_fps_rendering(bool to_display) {
+  if (!internal_bitmap_)
+    create_internal_bitmap();
+  al_register_event_source(thread_event_queue_, al_get_timer_event_source(fps_timer_));
+  is_fps_rendering_ = true;
+  draw_to_display_ = to_display;
+}
 
 /*TEMPLATE DERIVATIVE _NAME_
 
