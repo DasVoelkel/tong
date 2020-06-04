@@ -9,6 +9,8 @@ private:
 
   /* GUI */
   
+  void startup() override;
+void shutdown() override;
 
 public:
   // stuff everyone can access
@@ -20,7 +22,7 @@ public:
   
   // only absolutely neccessary override
    void *thread_(ALLEGRO_EVENT &event, void *args) override;
-   void control_event_handler(size_t event) override;
+  void control_event_handler(UserEvent &event) override;
   void draw() override ;
   
 };

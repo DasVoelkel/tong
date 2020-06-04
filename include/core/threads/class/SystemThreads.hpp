@@ -9,90 +9,216 @@
 #include <atomic>
 
 
-#define LOG( tag, format, ... ) fprintf(stderr, ("["+std::string(tag)+"] "+ std::string(format)).c_str(), ##__VA_ARGS__)
+#define LOG(tag, format, ...) fprintf(stderr, ("["+std::string(tag)+"] "+ std::string(format)).c_str(), ##__VA_ARGS__)
 
 //#define LOG(tag, ...) fprintf(stderr, "["  #tag "] " __VA_ARGS__)
 
 
 
 
-enum SYSTEMTHREAD_EVENTS {
-  THREAD_STATE_CHANGE_EVENT = ALLEGRO_GET_EVENT_TYPE('D', 'E', 'A', 'D'),
-  THREAD_CONTROL_EVENT
+
+
+
+
+
+
+
+/* SystemThread Events meant for internal control of the state of an object.
+ *
+ * */
+enum class SYSTEMTHREAD_EVENTS : size_t {
+  THREAD_EVENT_GLOBAL = ALLEGRO_GET_EVENT_TYPE('D', 'E', 'A', 'D'),     // Signal all SystemThread objects, only used for shutdown/restart right now
+  THREAD_EVENT_CHAIN,                                                               // Signal this and every Object below this one
+  THREAD_EVENT_LOCAL,                                                               // signal the current systemthread object
+  THREAD_EVENT_CUSTOM,                                                              // will always be passed through to the handler
+  THREAD_EVENT_STATE_CHANGE                                                         // Only used by wait_for_thread, otherwise this will not be touched
 };
 
-enum THREAD_STATES {
-  T_RUNNING,
-  T_STOPPING, // pending
-  T_STOPPED, // DONE
-  T_DELETED
+
+// Thread States , a thread will start in "stopped" state
+enum class THREAD_STATES : size_t {
+  T_RUNNING,    // Thread internally is running
+  T_STOPPED,    // Thread either stopped or never started
+  T_DELETED     // destructor has been called, object invalid
 };
+
+// what commands can get through the global handler?
+enum class GLOBAL_THREAD_CMD : size_t {
+  G_EXIT,
+  G_RESTART
+};
+
+// chain events
+enum class CHAIN_THREAD_CMD : size_t {
+  C_EXIT
+};
+
+// local commands
+enum class LOCAL_THREAD_CMD : size_t {
+  L_STOPPING,
+  L_STARTING,
+  L_DELETING
+};
+
 
 // worker threads search for the controller next up in their hirarchy
 // controllers listen to the next controller in the hirarchy,if there is none then they run themselves, (this would only be the case with the first one)
-enum class THREAD_TYPES {
-  THREAD_NOTYPE,
-  THREAD_WORKER,
-  THREAD_CONTROLLER
+enum class THREAD_TYPES : size_t {
+  THREAD_CONTROLLER,        //
+  THREAD_WORKER
+  
 };
 
+
+// Custom struct for holding bitmaps and their locks
+struct BitmapSet {
+  ALLEGRO_BITMAP *bitmap;
+  ALLEGRO_MUTEX *mutex;
+  
+  BitmapSet() : bitmap(NULL), mutex(NULL) {}
+  
+  ~BitmapSet() {
+    al_destroy_mutex(mutex);
+    al_destroy_bitmap(bitmap);
+  }
+};
+
+struct UserEvent {
+  SYSTEMTHREAD_EVENTS event_type;
+  size_t event;
+};
+
+static void UserEventDtor(ALLEGRO_USER_EVENT *event) {
+  free((void *) event->data1);
+}
+
+
 class SystemThread {
+  //static to all
 private:
   ALLEGRO_THREAD *running_thread_ = NULL;
+  
+  // used to keep track of the static objects and to see when they need to be destroyed
   static size_t obj_counter_;
-  static ALLEGRO_MUTEX * object_counter_lock_;
-  static std::vector<ALLEGRO_BITMAP*> bitmaps_;
+  static ALLEGRO_MUTEX *object_counter_lock_;
+  
+  // FPS Timer, will trigger 'draw' function when triggered
+  static ALLEGRO_TIMER *fps_timer_;
+  
+  // helper to something that is globally unique
+  static ALLEGRO_FONT *default_font_;
+  
+  // global source, will effect any object
+  static ALLEGRO_EVENT_SOURCE *global_source_;
+  
+  // Used by controllers to control their chain
+  ALLEGRO_EVENT_SOURCE *chain_source_=NULL;
+  
+  // Used by anyone for local state changes
+  ALLEGRO_EVENT_SOURCE *local_source=NULL;
+  
+  // Used for wait_for_state change
+  ALLEGRO_EVENT_SOURCE * state_change_source=NULL;
+  
+  // There is at most only 1 display per program, if you need more you gotta handle that yourself.
+  static ALLEGRO_DISPLAY *display_;
+
 protected:
   //core
+  // Thread name
   const std::string name_ = {};
-  const char* TAG_ =NULL;
+  // [name] for a macro
+  const char *TAG_ = NULL;
   const THREAD_TYPES type_;
-  SystemThread *parent_ = NULL;
-  std::vector<std::unique_ptr<SystemThread>> child_threads_={};
   
-  //statistics
-  size_t events_processed_ = 0;
+  SystemThread *parent_ = NULL;
+  
+  // how many threads are waiting for me right now ?
   std::atomic<int> waiting_for_me_;
   
-  // rendering structure
+  // all children should be added here so even with new the deleter will be called
+  std::vector<std::unique_ptr<SystemThread>> child_threads_;
+  
+  // adjust the size to the display
+  void adjust_bitmap_size();
+
+
 private:
-  static ALLEGRO_DISPLAY* display_;
-  static ALLEGRO_TIMER *fps_timer_;
+  // Only called by root
+  void create_root_display();
+  
+  // create all internally needed things,
+  void create_internal_bitmap();
+  
+  // called before thread_ loops indefinitely
+  virtual void startup() = 0;
+  
+  // called before the thread changes to "stopped" state
+  virtual void shutdown() = 0;
+  
+  // will be called when there is any event to handle unless it's internal
+  virtual void *thread_(ALLEGRO_EVENT &event, void *args) = 0;
+  
+  // If there is a custom event received it will reach through to this spot
+  virtual void control_event_handler(UserEvent &event) = 0;
+  
+  // Default implementation will filter out global and local events, you can overwrite it if you want
+  virtual void thread_event_filter_();
+  
+  
+  static void *thread_wrapper(ALLEGRO_THREAD *thr, void *arg); // make a wrapper so that the actual code only gets the event itself without handling the rest
+  
+  // called from internally
+  // redraws will be triggered whenever 'redraw_needed' is true and the thread has no waiting events,
+  // the pre and post operations will be done implicitly,
+  // use this if you don't want to mess around with Bitmap Targets
+  virtual void draw() = 0;
+  
+  // is the internal wrapper which does all the post and pre draw operations
+  void thread_draw_wrapper();
+
+  void change_state(THREAD_STATES new_state);
+  
 protected:
-  ALLEGRO_BITMAP* internal_bitmap_=NULL;
-  ALLEGRO_MUTEX * internal_bitmap_lock_ = NULL;
+  // internal picture for this one object, this is where rewrite will trigger to
+  std::unique_ptr<BitmapSet> internal_bitmap_;
+  
+  // control
   bool redraw_needed_ = false;
-  size_t times_drawn_=0;
-  bool is_fps_rendering_ = false;
-  bool draw_to_display_=false;
+  bool is_fps_enabled_ = false;
+  bool is_display_enabled_ = false;
   
   //thread structure
-  ALLEGRO_EVENT_SOURCE *state_change_event_source_ = NULL;
-  ALLEGRO_EVENT_SOURCE *control_event_source_ = NULL;
-  ALLEGRO_EVENT_QUEUE *thread_event_queue_ = NULL; // also used by core function
+  ALLEGRO_EVENT_SOURCE *local_event_source_ = NULL;
+  ALLEGRO_EVENT_SOURCE *chain_event_source_ = NULL;
+  
+  // Everything lands in here, as we don't want to "stall" when something happenes we don't expect
+  ALLEGRO_EVENT_QUEUE *event_queue = NULL;
+  
+  // Starting state should always be stopped
   THREAD_STATES thread_state_ = THREAD_STATES::T_STOPPED;
-  // also for user use
+  
+  // Args will pass through "start" to the thread itself
   void *thread_args_ = NULL;
-  // for user use, needs to never be touched
+  
+  // will be made accessible
   void *thread_retval_ = NULL;
-  
-  void update_thread_state(THREAD_STATES new_state);
-  
-  // just stuff that is needed all over the place
-  static ALLEGRO_FONT* default_font_;
-  
-  
-  
-  
+
 public:
-  void enable_fps_rendering(bool to_display);
+  virtual ~SystemThread();
   
   SystemThread(const SystemThread &) = delete;
+  
   void operator=(SystemThread const &) = delete;
   
+  // Controller Threads will additionally have a chain source to send to
   SystemThread(std::string name, THREAD_TYPES type, SystemThread *parent = NULL);
   
-  virtual ~SystemThread();
+  
+  // dispatch any type of command
+  template<class T>
+  void dispatch_event(SYSTEMTHREAD_EVENTS type, T event);
+  
   
   /* start can be overwritten, but you must call this start at the end
    * of your implementation in order to start the thread properly
@@ -105,31 +231,32 @@ public:
   * */
   virtual bool stop();
   
-  
-  // maybe implement "restart"?
-  
-  virtual void *thread_(ALLEGRO_EVENT &event, void *args) = 0;
-  void create_internal_bitmap();
-  void adjust_bitmap_size();
-  
-  virtual void thread_event_filter_();
+  // output the internally rendered map to whoever requests it
   void draw_internal_bitmap();
-  virtual void draw()=0;
-private:
-  static void *thread_wrapper(ALLEGRO_THREAD *thr, void *arg); // make a wrapper so that the actual code only gets the event itself without handling the rest
-  void thread_draw_wrapper();
-public:
   
+  // block / or not , until the desired state is reached
   bool wait_for_state(THREAD_STATES expected, bool blocking = true);
   
-  bool send_control_event(const size_t control_event); // send it out
+  // memory will stay allocated until the end of life of the object
+  void disable_fps_rendering();
   
-  virtual void control_event_handler(size_t event) = 0; // what happenes when received
+  // enable internal redrawing
+  void enable_fps_rendering();
   
-  // need something like "send event to parent control via control"
   
+  void enable_display_events();
   
-  //getter
+  void disable_display_events();
+  
+  void close() {
+    dispatch_event(SYSTEMTHREAD_EVENTS::THREAD_EVENT_GLOBAL, GLOBAL_THREAD_CMD::G_EXIT);
+  }
+  
+  void restart() {
+    dispatch_event(SYSTEMTHREAD_EVENTS::THREAD_EVENT_GLOBAL, GLOBAL_THREAD_CMD::G_RESTART);
+    
+  }
+
 public:
   
   THREAD_STATES &get_state_() {
@@ -143,20 +270,21 @@ public:
   THREAD_TYPES get_type_() {
     return type_;
   }
-  ALLEGRO_BITMAP* get_internal_bitmap_(){
+  
+  ALLEGRO_BITMAP *get_internal_bitmap_() {
     assert(internal_bitmap_);
-    return internal_bitmap_;
+    return internal_bitmap_->bitmap;
   }
   
-  const char* get_name_(){
+  const char *get_name_() {
     return name_.c_str();
   }
   
-  ALLEGRO_DISPLAY* get_display_(){
-    return display_;
+  ALLEGRO_DISPLAY *get_display_() {
+    return SystemThread::display_;
   }
   
-  ALLEGRO_TIMER* get_fps_timer_(){
+  ALLEGRO_TIMER *get_fps_timer_() {
     return fps_timer_;
   }
   
@@ -167,10 +295,20 @@ public:
   
   static const char *repr(THREAD_TYPES type);
   
+  static const char *repr(SYSTEMTHREAD_EVENTS event);
+  
+  static const char *repr(GLOBAL_THREAD_CMD event);
+  
+  static const char *repr(CHAIN_THREAD_CMD event);
+  
+  static const char *repr(LOCAL_THREAD_CMD event);
+  
+  
   static void must_init(bool test, const char *description);
   
-  static ALLEGRO_FONT* get_default_font();
+  static ALLEGRO_FONT *get_default_font();
   
   void print() const;
+  
   
 };

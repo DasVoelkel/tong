@@ -17,15 +17,21 @@ EXIT,
 
 class CompositorThread : public SystemThread {
 
+private:
+  void startup()override;
+  void shutdown()override;
+
 
 public:
-   std::atomic<CONTROL_CMD> game_state;
+
+  int counter=0;
+  
 public:
   CompositorThread();
   
    ~CompositorThread() override;
   
    void *thread_(ALLEGRO_EVENT &event, void *args) override;
-   void control_event_handler(size_t event) override;
+   void control_event_handler(UserEvent &event) override;
   void draw() override;
 };

@@ -1,106 +1,90 @@
 #include "core/threads/CompositorThread.hpp"
 #include <core/threads/InputThread.hpp>
-#include <core/threads/RenderThread.hpp>
+//#include <core/threads/RenderThread.hpp>
 #include <jansson.h>
 
-CompositorThread::CompositorThread() : SystemThread(std::string("Compositor"), THREAD_TYPES::THREAD_CONTROLLER), game_state(RUNNING) {
-  
+#include <allegro5/allegro_color.h>
 
-  al_show_mouse_cursor(get_display_());
-  al_set_window_title(get_display_(),"Agui - Example");
+
+CompositorThread::CompositorThread() : SystemThread(std::string("Compositor"), THREAD_TYPES::THREAD_CONTROLLER) {
+
+}
+
+CompositorThread::~CompositorThread() {
+}
+
+void CompositorThread::startup() {
+   counter =0;
   
-  enable_fps_rendering(true);
-  child_threads_.emplace_back(std::make_unique<RenderThread>(this));
+  al_show_mouse_cursor(get_display_());
+  
+  al_set_window_title(get_display_(), "Agui - Example");
+  
+  enable_fps_rendering();
+  
+  child_threads_.emplace_back(std::make_unique<InputThread>(this));
   
   for (auto &child : child_threads_) {
-    child->enable_fps_rendering(false);
-    
+    //child->enable_fps_rendering();
   }
   
   for (auto &child : child_threads_) {
     child->start(NULL);
   }
   
+  LOG(TAG_,"Children after start : %d \n",child_threads_.size());
+  
 }
 
-CompositorThread::~CompositorThread() {
-}
-
-
-void CompositorThread::control_event_handler(size_t event) {
-  
-  
-
-  game_state = (CONTROL_CMD) event;
-  switch (event) {
-    case RUNNING:
-      break;
-    case RESTART:
-      for (auto &child : child_threads_) {
-        child->wait_for_state(THREAD_STATES::T_STOPPED);
-      }
-      
-      for (auto &child : child_threads_) {
-        child->start(NULL);
-      }
-      game_state = RUNNING;
-      break;
-    case EXIT:
-      
-      for (auto &child : child_threads_) {
-        child->wait_for_state(THREAD_STATES::T_STOPPED);
-      }
-      stop();
-      break;
-
-    default:
-      assert(false);
-      break;
-    
+void CompositorThread::shutdown() {
+  for (auto &child : child_threads_) {
+    child->stop();
   }
   
+  for (auto &child : child_threads_) {
+    child->wait_for_state(THREAD_STATES::T_STOPPED);
+  }
+  child_threads_.clear();
+  
+  LOG(TAG_,"Children left: %d \n",child_threads_.size());
+  
 }
 
-#include <allegro5/allegro_color.h>
+
+
+
+
+
+
+
+void CompositorThread::control_event_handler(UserEvent &event) {
+  
+  LOG(TAG_,"Custom event %d \n",event.event);
+  
+
+  
+}
 
 
 void *CompositorThread::thread_(ALLEGRO_EVENT &event, void *args) {
-
-  
-  
-  switch (event.type)
-  {
-    case ALLEGRO_EVENT_TIMER:
-    {
-      LOG(TAG_,"FILTER TIMER CORRECTLY! \n ");
-    }
-    case ALLEGRO_EVENT_DISPLAY_CLOSE:
-      // closing the window
-     LOG(TAG_,"ALLEGRO_EVENT_DISPLAY_CLOSE\n");
-      send_control_event(EXIT);
-      break;
+  switch (event.type) {
     case ALLEGRO_EVENT_DISPLAY_RESIZE:
-  
-      LOG(TAG_,"ALLEGRO_EVENT_DISPLAY_RESIZE , GUI resize\n");
-
-      
+      //adjust_bitmap_size();
       break;
-    
-  
     default:
-      //fprintf(stderr, "unexpected event in %s ! >%i<\n",name_.c_str(), event.type);
       break;
     
   }
-  
   return NULL;
 }
 
+
 void CompositorThread::draw() {
-  
-  LOG(TAG_," %p \n",internal_bitmap_);
-  al_draw_textf(get_default_font(), al_color_name("black"), 1, 1, ALLEGRO_ALIGN_LEFT, "Drawn threads: %d ",times_drawn_);
+  counter++;
+  al_clear_to_color(al_color_name("white"));
+  al_draw_textf(get_default_font(), al_color_name("black"), 1, 1, ALLEGRO_ALIGN_LEFT, "Drawn threads: %d ", counter);
   
 }
+
 
 
