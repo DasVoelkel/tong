@@ -21,18 +21,22 @@ ALLEGRO_FONT *SystemThread::default_font_ = NULL;
 ALLEGRO_TIMER *SystemThread::fps_timer_ = NULL;
 
 size_t SystemThread::obj_counter_ = 0;
-ALLEGRO_MUTEX *SystemThread::object_counter_lock_ = al_create_mutex();
+ALLEGRO_MUTEX *SystemThread::objects_lock_ = al_create_mutex();
 
 ALLEGRO_EVENT_SOURCE *SystemThread::global_source_ = NULL;
 
 // it's static but not shared or protected, just the  measurements are
 ALLEGRO_DISPLAY *SystemThread::display_ = NULL;
 
+// keep track of everything that has been created
+std::vector<std::pair<size_t, SystemThread *>> SystemThread::render_list_{};
+ALLEGRO_MUTEX *SystemThread::render_list_lock_ = al_create_mutex();
+
 
 SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *parent) : name_(std::move(name)), type_(type), parent_(parent), waiting_for_me_(0), TAG_(name_.c_str()) {
   
   // control that we always have knowledge of our static stuff
-  al_lock_mutex(object_counter_lock_);
+  al_lock_mutex(objects_lock_);
   
   if (obj_counter_ == 0) {
     must_init(al_init(), "allegro");
@@ -56,6 +60,11 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
   }
   
   event_queue = al_create_event_queue();
+  
+  if (!parent_) {
+    // root always has the fps timer, it's his job to draw
+    al_register_event_source(event_queue, al_get_timer_event_source(fps_timer_));
+  }
   
   // global source
   al_register_event_source(event_queue, global_source_); // everyone will know the global event source
@@ -96,7 +105,8 @@ SystemThread::SystemThread(std::string name, THREAD_TYPES type, SystemThread *pa
   LOG(TAG_, "Created: %s , %s \n", repr(type_), parent_ ? "parent" : "no parent");
   obj_counter_++;
   
-  al_unlock_mutex(object_counter_lock_);
+  
+  al_unlock_mutex(objects_lock_);
   
 }
 
@@ -119,9 +129,21 @@ SystemThread::~SystemThread() {
     delete chain_event_source_;
   }
   
+  al_lock_mutex(render_list_lock_);
+  
+  for (auto it = render_list_.begin(); it != render_list_.end(); it++) {
+    if (it->second == this) {
+      render_list_.erase(it);
+      break;
+    }
+  }
+  
+  al_unlock_mutex(render_list_lock_);
+  
+  
   al_destroy_event_queue(event_queue);
   
-  al_lock_mutex(object_counter_lock_);
+  al_lock_mutex(objects_lock_);
   obj_counter_--;
   
   if (obj_counter_ == 0) {
@@ -133,7 +155,8 @@ SystemThread::~SystemThread() {
     display_ = NULL;
   }
   
-  al_unlock_mutex(object_counter_lock_);
+  
+  al_unlock_mutex(objects_lock_);
   
   
 }
@@ -267,14 +290,11 @@ void SystemThread::thread_event_filter_() {
     assert(get_state_() != THREAD_STATES::T_DELETED);
     
     if (redraw_needed_ && al_event_queue_is_empty(event_queue)) { // if we need to draw wait for it all to be chill
-      thread_draw_wrapper();
       redraw_needed_ = false;
-      if (!parent_) {
-        al_set_target_backbuffer(display_);
-        draw_internal_bitmap();
-        al_flip_display();
-        al_set_target_bitmap(NULL);
-      }
+      
+      
+      draw_to_display();
+      
     }
     
     ALLEGRO_EVENT event;
@@ -360,21 +380,19 @@ void SystemThread::thread_event_filter_() {
     switch (event.type) { // filter special things out
       case ALLEGRO_EVENT_TIMER:     // only on fps required
         if (event.timer.source == fps_timer_) {
-          if (is_fps_enabled_) {
-            redraw_needed_ = true;
-          }
+          // Only root needs to redraw
+          redraw_needed_ = true;
+          
           continue;
         }
         break;
       case ALLEGRO_EVENT_DISPLAY_RESIZE: {
         if (!parent_) {
           if (al_get_display_width(display_) != event.display.width or al_get_display_height(display_) != event.display.height) {
-            LOG(TAG_, "Resized display W: %d H: %d -> W: %d H: %d \n", al_get_display_width(display_), al_get_display_height(display_), event.display.width, event.display.height);
+            //LOG(TAG_, "Resized display W: %d H: %d -> W: %d H: %d \n", al_get_display_width(display_), al_get_display_height(display_), event.display.width, event.display.height);
             al_resize_display(display_, event.display.width, event.display.height);
           }
           al_acknowledge_resize(display_);
-          if (!parent_)
-            adjust_bitmap_size();
           
         }
       }
@@ -447,100 +465,87 @@ bool SystemThread::stop() {
 }
 
 
-void SystemThread::create_internal_bitmap() {
+void SystemThread::draw_to_display() {
+  ALLEGRO_ASSERT(!parent_);
+  al_set_target_backbuffer(display_);
   
-  if (!internal_bitmap_) {
-    internal_bitmap_ = std::make_unique<BitmapSet>();
-    internal_bitmap_->mutex = al_create_mutex();
-    al_lock_mutex(internal_bitmap_->mutex);
-  } else {
-    al_lock_mutex(internal_bitmap_->mutex);
-    al_destroy_bitmap(internal_bitmap_->bitmap);
-  }
-  
-  
-  internal_bitmap_->bitmap = al_create_bitmap(al_get_display_width(display_), al_get_display_height(display_));
-  
-  LOG(TAG_, "Created Bitmap %p: W:%d H:%d \n", internal_bitmap_->bitmap, al_get_display_width(display_), al_get_display_height(display_));
-  al_unlock_mutex(internal_bitmap_->mutex);
-}
-
-
-void SystemThread::adjust_bitmap_size() {
-  if (!internal_bitmap_) {
-    create_internal_bitmap();
-    LOG(TAG_, "Adjust? Created new");
-    return;
-  }
-  
-  al_lock_mutex(internal_bitmap_->mutex);
-  
-  LOG(TAG_, "Adjusted W:%d H:%d -> W:%d H:%d \n", al_get_bitmap_width(internal_bitmap_->bitmap), al_get_bitmap_height(internal_bitmap_->bitmap), al_get_display_width(display_), al_get_display_height(display_));
-  al_destroy_bitmap(internal_bitmap_->bitmap);
-  internal_bitmap_->bitmap = al_create_bitmap(al_get_display_width(display_), al_get_display_height(display_));
-  
-  al_unlock_mutex(internal_bitmap_->mutex);
-}
-
-void SystemThread::thread_draw_wrapper() {
-  assert(internal_bitmap_ && "redraw triggered but the Thread has no internal bitmaps!");
-  
-  al_lock_mutex(internal_bitmap_->mutex);
-  al_set_target_bitmap(internal_bitmap_->bitmap);
-  
-  //LOG(TAG_, "Draw Thread bitmap %p W: %d, H: %d\n", internal_bitmap_->bitmap, al_get_bitmap_width(internal_bitmap_->bitmap), al_get_bitmap_height(internal_bitmap_->bitmap));
-  
+  LOG(TAG_,"Drawing root\n");
   draw();
   
-  al_set_target_bitmap(NULL);
-  al_unlock_mutex(internal_bitmap_->mutex);
-}
-
-void SystemThread::draw_internal_bitmap() {
-  assert(al_get_target_bitmap() && "Shouldn't be null");
-  
-  al_lock_mutex(internal_bitmap_->mutex);
-  al_draw_bitmap(internal_bitmap_->bitmap, 0, 0, 0);
-  al_unlock_mutex(internal_bitmap_->mutex);
-}
-
-void SystemThread::enable_fps_rendering() {
-  if (!internal_bitmap_)
-    create_internal_bitmap();
-  
-  if (!(al_is_event_source_registered(event_queue, al_get_timer_event_source(fps_timer_)))) {
-    al_register_event_source(event_queue, al_get_timer_event_source(fps_timer_));
-    LOG(TAG_, "enabled FPS rendering, Timer: % s \n", al_get_timer_started(fps_timer_) ? "on" : "off");
+  for (auto threads: render_list_) {
+    LOG(TAG_,"Drawing %s\n",threads.second->name_.c_str());
+    threads.second->draw();
   }
   
-  is_fps_enabled_ = true;
+  
+  al_flip_display();
+  
+  
 }
 
 
+// delete it from the list if it even was in there, and then re-add it with new order
+void SystemThread::enable_fps_rendering(size_t order) {
+  ALLEGRO_ASSERT(parent_ && "The parent Thread is the renderer, it will always call it's own render to clear the screen");
+  al_lock_mutex(render_list_lock_);
+  for (auto it = render_list_.begin(); it != render_list_.end(); it++) { // if it's in here, delete it
+    if (it->second == this) {
+      render_list_.erase(it);
+      break;
+    }
+  }
+  
+  render_list_.emplace_back(std::make_pair(order, this));
+  
+  // sort it, maybe something new got inserted
+  std::sort(render_list_.begin(), render_list_.end(), [](std::pair<size_t, SystemThread *> a, std::pair<size_t, SystemThread *> b) {
+    return a.first < b.first;
+  });
+  
+  al_unlock_mutex(render_list_lock_);
+  
+}
+
+// if it was in the list, now it's gone
 void SystemThread::disable_fps_rendering() {
-  is_fps_enabled_ = false;
-  if ((al_is_event_source_registered(event_queue, al_get_timer_event_source(fps_timer_)))) {
-    al_unregister_event_source(event_queue, al_get_timer_event_source(fps_timer_));
-    LOG(TAG_, "disable FPS rendering");
-    
+  ALLEGRO_ASSERT(parent_ && "The parent Thread is the renderer, it will always call it's own render to clear the screen");
+  
+  al_lock_mutex(render_list_lock_);
+  for (auto it = render_list_.begin(); it != render_list_.end(); it++) { // if it's in here, delete it
+    if (it->second == this) {
+      render_list_.erase(it);
+      break;
+    }
   }
+  al_unlock_mutex(render_list_lock_);
+  
 }
+
+
+bool SystemThread::is_fps_rendering_enabled() {
+  for (auto it = render_list_.begin(); it != render_list_.end(); it++) { // if it's in here, delete it
+    if (it->second == this) {
+      return true;
+    }
+  }
+  return false;
+}
+
 
 void SystemThread::enable_display_events() {
   if (!al_is_event_source_registered(event_queue, al_get_display_event_source(display_)))
     al_register_event_source(event_queue, al_get_display_event_source(display_));
-  is_display_enabled_ = true;
-  
 }
 
 void SystemThread::disable_display_events() {
-  is_display_enabled_ = false;
-  
-  if (is_fps_enabled_)
-    if (al_is_event_source_registered(event_queue, al_get_timer_event_source(fps_timer_)))
-      al_unregister_event_source(event_queue, al_get_timer_event_source(fps_timer_));
+  if (al_is_event_source_registered(event_queue, al_get_display_event_source(display_)))
+    al_unregister_event_source(event_queue, al_get_display_event_source(display_));
 }
 
+
+bool SystemThread::is_display_events_enabled() {
+  return al_is_event_source_registered(event_queue, al_get_display_event_source(display_));
+}
 
 /*       _   _ _
       | | (_) |
@@ -658,6 +663,10 @@ void SystemThread::print() const {
 ALLEGRO_FONT *SystemThread::get_default_font() {
   assert(default_font_);
   return default_font_;
+}
+
+void SystemThread::draw() {
+
 }
 
 

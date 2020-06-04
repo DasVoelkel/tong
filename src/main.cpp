@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 
-#include <core/threads/CompositorThread.hpp>
+#include <core/threads/DisplayThread.hpp>
 
 
 
@@ -11,7 +11,7 @@ int main() // MAIN IS OUR CONTROL THREAD
 {
   fprintf(stderr, "---START---\n");
   
- auto x = CompositorThread();
+ auto x = DisplayThread();
   x.print();
   x.start(NULL);
   x.wait_for_state(THREAD_STATES::T_RUNNING);

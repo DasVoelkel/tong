@@ -7,7 +7,7 @@
 #include <vector>
 #include <memory>
 #include <atomic>
-
+#include <map>
 
 #define LOG(tag, format, ...) fprintf(stderr, ("["+std::string(tag)+"] "+ std::string(format)).c_str(), ##__VA_ARGS__)
 
@@ -70,19 +70,6 @@ enum class THREAD_TYPES : size_t {
 };
 
 
-// Custom struct for holding bitmaps and their locks
-struct BitmapSet {
-  ALLEGRO_BITMAP *bitmap;
-  ALLEGRO_MUTEX *mutex;
-  
-  BitmapSet() : bitmap(NULL), mutex(NULL) {}
-  
-  ~BitmapSet() {
-    al_destroy_mutex(mutex);
-    al_destroy_bitmap(bitmap);
-  }
-};
-
 struct UserEvent {
   SYSTEMTHREAD_EVENTS event_type;
   size_t event;
@@ -98,9 +85,13 @@ class SystemThread {
 private:
   ALLEGRO_THREAD *running_thread_ = NULL;
   
-  // used to keep track of the static objects and to see when they need to be destroyed
+  // What objects have rendering enabled?
+  static std::vector<std::pair<size_t,SystemThread*>> render_list_;
+  static ALLEGRO_MUTEX *render_list_lock_;
+  
+  
   static size_t obj_counter_;
-  static ALLEGRO_MUTEX *object_counter_lock_;
+  static ALLEGRO_MUTEX *objects_lock_;
   
   // FPS Timer, will trigger 'draw' function when triggered
   static ALLEGRO_TIMER *fps_timer_;
@@ -122,7 +113,8 @@ private:
   
   // There is at most only 1 display per program, if you need more you gotta handle that yourself.
   static ALLEGRO_DISPLAY *display_;
-
+  
+  
 protected:
   //core
   // Thread name
@@ -138,17 +130,10 @@ protected:
   
   // all children should be added here so even with new the deleter will be called
   std::vector<std::unique_ptr<SystemThread>> child_threads_;
-  
-  // adjust the size to the display
-  void adjust_bitmap_size();
-
 
 private:
   // Only called by root
   void create_root_display();
-  
-  // create all internally needed things,
-  void create_internal_bitmap();
   
   // called before thread_ loops indefinitely
   virtual void startup() = 0;
@@ -172,21 +157,15 @@ private:
   // redraws will be triggered whenever 'redraw_needed' is true and the thread has no waiting events,
   // the pre and post operations will be done implicitly,
   // use this if you don't want to mess around with Bitmap Targets
-  virtual void draw() = 0;
+  virtual void draw();
   
-  // is the internal wrapper which does all the post and pre draw operations
-  void thread_draw_wrapper();
-
   void change_state(THREAD_STATES new_state);
   
+  void draw_to_display();
 protected:
-  // internal picture for this one object, this is where rewrite will trigger to
-  std::unique_ptr<BitmapSet> internal_bitmap_;
   
   // control
   bool redraw_needed_ = false;
-  bool is_fps_enabled_ = false;
-  bool is_display_enabled_ = false;
   
   //thread structure
   ALLEGRO_EVENT_SOURCE *local_event_source_ = NULL;
@@ -231,9 +210,6 @@ public:
   * */
   virtual bool stop();
   
-  // output the internally rendered map to whoever requests it
-  void draw_internal_bitmap();
-  
   // block / or not , until the desired state is reached
   bool wait_for_state(THREAD_STATES expected, bool blocking = true);
   
@@ -241,7 +217,7 @@ public:
   void disable_fps_rendering();
   
   // enable internal redrawing
-  void enable_fps_rendering();
+  void enable_fps_rendering(size_t order);
   
   
   void enable_display_events();
@@ -271,11 +247,6 @@ public:
     return type_;
   }
   
-  ALLEGRO_BITMAP *get_internal_bitmap_() {
-    assert(internal_bitmap_);
-    return internal_bitmap_->bitmap;
-  }
-  
   const char *get_name_() {
     return name_.c_str();
   }
@@ -288,6 +259,9 @@ public:
     return fps_timer_;
   }
   
+  bool is_fps_rendering_enabled();
+  
+  bool is_display_events_enabled();
   
   // util
 public:

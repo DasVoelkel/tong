@@ -15,7 +15,7 @@ EXIT,
 };
 
 
-class CompositorThread : public SystemThread {
+class DisplayThread : public SystemThread {
 
 private:
   void startup()override;
@@ -27,9 +27,9 @@ public:
   int counter=0;
   
 public:
-  CompositorThread();
+  DisplayThread();
   
-   ~CompositorThread() override;
+   ~DisplayThread() override;
   
    void *thread_(ALLEGRO_EVENT &event, void *args) override;
    void control_event_handler(UserEvent &event) override;
